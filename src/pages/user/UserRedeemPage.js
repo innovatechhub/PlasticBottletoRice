@@ -5,13 +5,14 @@ import { useData } from "../../app/DataContext";
 export default function UserRedeemPage() {
   const { currentUser } = useAuth();
   const { system, actions } = useData();
-  const [pointsToRedeem, setPointsToRedeem] = useState(10);
+  const [kgToRedeem, setKgToRedeem] = useState(0.5);
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
+  // 1 kg plastic = 1 kg rice
   const estimatedRice = useMemo(
-    () => Number(pointsToRedeem || 0) * system.ricePerPoint,
-    [pointsToRedeem, system.ricePerPoint]
+    () => Number(kgToRedeem || 0),
+    [kgToRedeem]
   );
 
   const handleRedeem = (event) => {
@@ -23,7 +24,7 @@ export default function UserRedeemPage() {
       return;
     }
 
-    const result = actions.redeemRice(currentUser.id, pointsToRedeem);
+    const result = actions.redeemRice(currentUser.id, kgToRedeem);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -35,22 +36,22 @@ export default function UserRedeemPage() {
   return (
     <div className="stack">
       <section className="card">
-        <h2 className="card-title">Redeem Points to Rice</h2>
+        <h2 className="card-title">Redeem kg for Rice</h2>
         <p className="muted-text">
-          Conversion rate: <strong>1 point = {system.ricePerPoint} kg rice</strong>
+          Conversion rate: <strong>1 kg plastic = 1 kg rice</strong>
         </p>
         <div className="split-grid">
           <div className="sub-card">
-            <p>Available points</p>
-            <h3>{currentUser?.points ?? 0}</h3>
+            <p>Your balance</p>
+            <h3>{(currentUser?.weightKg ?? 0).toFixed(3)} kg</h3>
           </div>
           <div className="sub-card">
             <p>Available rice stock</p>
             <h3>{system.riceStock} kg</h3>
           </div>
           <div className="sub-card">
-            <p>Estimated rice output</p>
-            <h3>{estimatedRice.toFixed(2)} kg</h3>
+            <p>Rice you will receive</p>
+            <h3>{estimatedRice.toFixed(3)} kg</h3>
           </div>
         </div>
       </section>
@@ -58,14 +59,15 @@ export default function UserRedeemPage() {
       <section className="card">
         <form className="stack" onSubmit={handleRedeem}>
           <label>
-            Points to redeem
+            kg to redeem
             <input
               className="input-field"
               type="number"
-              min="1"
-              value={pointsToRedeem}
+              min="0.001"
+              step="0.001"
+              value={kgToRedeem}
               onChange={(event) =>
-                setPointsToRedeem(Math.max(1, Number(event.target.value)))
+                setKgToRedeem(Math.max(0.001, Number(event.target.value)))
               }
             />
           </label>

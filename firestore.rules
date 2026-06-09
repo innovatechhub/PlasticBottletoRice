@@ -16,7 +16,7 @@ service cloud.firestore {
         && request.resource.data.email.size() > 0
         && request.resource.data.role is string
         && validRole(request.resource.data.role)
-        && request.resource.data.points is number;
+        && request.resource.data.weightKg is number;
     }
 
     // Household/admin accounts stored in /users.
@@ -50,6 +50,18 @@ service cloud.firestore {
 
     // Backward compatibility for current app-state sync document.
     match /pbtr_state/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Hardware bin events written by ESP32 (anonymous auth).
+    // The web app marks them processed: true after crediting the user.
+    match /bin_events/{eventId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Per-bin command documents (one doc per bin, keyed by binId).
+    // Web app writes "waiting"; ESP32 updates to "active" / "done" / "expired".
+    match /bin_commands/{binId} {
       allow read, write: if isSignedIn();
     }
   }

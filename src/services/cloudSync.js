@@ -5,7 +5,9 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { dataStore, normalizeState } from "./localStore";
 import {
@@ -21,6 +23,7 @@ const SYSTEM_COLLECTION = "system";
 const SYSTEM_DOC_ID = "config";
 const LEGACY_STATE_COLLECTION = "pbtr_state";
 const LEGACY_STATE_DOC_ID = "main";
+const BIN_EVENTS_COLLECTION = "bin_events";
 
 const stableHash = (value) => JSON.stringify(value);
 
@@ -29,6 +32,8 @@ let syncMode = "local";
 let applyingRemote = false;
 let lastSyncedHash = "";
 let writeChain = Promise.resolve();
+
+const processedBinCommands = new Set();   // prevent double-crediting on rapid re-fires
 
 const remoteSnapshotState = {
   users: [],
@@ -222,6 +227,33 @@ const bootstrapRemote = async () => {
   }
 };
 
+const processBinEvent = async (event) => {
+  try {
+    const rawState = dataStore.getRawState();
+    const bin = rawState.system.bins?.[event.binId];
+
+    if (!bin?.assignedUserId) {
+      console.warn(`bin_event ignored — no user assigned to bin "${event.binId}"`);
+      return;
+    }
+
+    dataStore.insertBottleFromHardware(
+      bin.assignedUserId,
+      event.weightKg,
+      event.binId
+    );
+
+    // Mark processed so the listener doesn't fire again
+    await setDoc(
+      doc(firestoreDb, BIN_EVENTS_COLLECTION, event.id),
+      { processed: true },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error("processBinEvent error:", err);
+  }
+};
+
 const startRemoteListeners = () => {
   onSnapshot(
     collection(firestoreDb, USERS_COLLECTION),
@@ -266,6 +298,55 @@ const startRemoteListeners = () => {
       syncMode = "local";
     }
   );
+
+  // Listen for new bottle events from hardware bins
+  onSnapshot(
+    query(
+      collection(firestoreDb, BIN_EVENTS_COLLECTION),
+      where("processed", "==", false)
+    ),
+    (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const event = { id: change.doc.id, ...change.doc.data() };
+          processBinEvent(event);
+        }
+      });
+    },
+    () => {}
+  );
+
+  // Listen for bin_commands status changes (written by ESP32 after detecting a bottle)
+  onSnapshot(
+    collection(firestoreDb, "bin_commands"),
+    (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type !== "added" && change.type !== "modified") return;
+
+        const data = { id: change.doc.id, ...change.doc.data() };
+
+        if (data.status === "done" && data.userId && data.weightKg > 0) {
+          const key = `${data.id}|${data.requestedAt}`;
+          if (processedBinCommands.has(key)) return;
+          processedBinCommands.add(key);
+
+          dataStore.insertBottleFromHardware(
+            data.userId,
+            data.weightKg,
+            data.binId || data.id
+          );
+
+          // Reset so the document is reusable for the next insert
+          await setDoc(
+            doc(firestoreDb, "bin_commands", data.id),
+            { status: "idle", weightKg: 0 },
+            { merge: true }
+          ).catch(() => {});
+        }
+      });
+    },
+    () => {}
+  );
 };
 
 export function startCloudSync() {
@@ -299,4 +380,41 @@ export function startCloudSync() {
   bootstrap().catch(() => {
     syncMode = "local";
   });
+}
+
+// Called by the UI when a user requests a bottle insert via the web button.
+// Writes a "waiting" command to Firestore; the ESP32 polls this and activates.
+export async function writeBinCommand(binId, userId, userName) {
+  if (!firestoreDb) {
+    return { ok: false, error: "Firebase not configured." };
+  }
+  try {
+    await ensureFirebaseSession();
+    await setDoc(doc(firestoreDb, "bin_commands", binId), {
+      binId,
+      userId,
+      userName,
+      status: "waiting",
+      requestedAt: new Date().toISOString(),
+      weightKg: 0,
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+// Cancels an in-progress bin command (user clicked Cancel).
+export async function cancelBinCommand(binId) {
+  if (!firestoreDb) return { ok: false };
+  try {
+    await setDoc(
+      doc(firestoreDb, "bin_commands", binId),
+      { status: "idle" },
+      { merge: true }
+    );
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }

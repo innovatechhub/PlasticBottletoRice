@@ -24,8 +24,12 @@ export function DataProvider({ children }) {
       deleteUser: (userId) => dataStore.deleteUser(userId),
       insertBottle: (userId, bottleCount) =>
         dataStore.insertBottle(userId, bottleCount),
-      redeemRice: (userId, pointsToRedeem) =>
-        dataStore.redeemRice(userId, pointsToRedeem),
+      insertBottleFromHardware: (userId, weightKg, binId) =>
+        dataStore.insertBottleFromHardware(userId, weightKg, binId),
+      updateBinAssignment: (binId, userId, userName) =>
+        dataStore.updateBinAssignment(binId, userId, userName),
+      redeemRice: (userId, kgToRedeem) =>
+        dataStore.redeemRice(userId, kgToRedeem),
       updateSystemConfig: (updates) => dataStore.updateSystemConfig(updates),
       restockRice: (amountKg) => dataStore.restockRice(amountKg),
       clearBottleStorage: () => dataStore.clearBottleStorage(),

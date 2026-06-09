@@ -35,7 +35,7 @@ const seedState = () => ({
       email: REQUIRED_ADMIN_ACCOUNT.email,
       password: REQUIRED_ADMIN_ACCOUNT.password,
       role: REQUIRED_ADMIN_ACCOUNT.role,
-      points: 0,
+      weightKg: 0,
       createdAt: now(),
     },
     {
@@ -44,7 +44,7 @@ const seedState = () => ({
       email: REQUIRED_HOUSEHOLD_ACCOUNT.email,
       password: REQUIRED_HOUSEHOLD_ACCOUNT.password,
       role: REQUIRED_HOUSEHOLD_ACCOUNT.role,
-      points: 0,
+      weightKg: 0,
       createdAt: now(),
     },
   ],
@@ -54,8 +54,10 @@ const seedState = () => ({
     riceStock: 0,
     bottleStorage: 0,
     maxBottleCapacity: 500,
-    pointsPerBottle: 2,
-    ricePerPoint: 0.1,
+    kgPerBottle: 0.025,
+    bins: {
+      bin_001: { assignedUserId: "", assignedUserName: "Unassigned" },
+    },
   },
 });
 
@@ -101,7 +103,7 @@ const normalizeState = (candidateState) => {
           email: String(user.email || "").toLowerCase(),
           password: user.password || "user123",
           role: user.role === "admin" ? "admin" : "user",
-          points: Math.max(0, toNumber(user.points, 0)),
+          weightKg: Math.max(0, toNumber(user.weightKg ?? user.points, 0)),
           createdAt: user.createdAt || now(),
         }))
         .filter((user) => user.email)
@@ -125,7 +127,7 @@ const normalizeState = (candidateState) => {
       email: requiredUser.email,
       password: requiredUser.password,
       role: requiredUser.role,
-      points: 0,
+      weightKg: 0,
       createdAt: now(),
     });
   };
@@ -192,7 +194,7 @@ const appendTransaction = ({
   userName,
   type,
   amount,
-  pointsDelta = 0,
+  kgDelta = 0,
   riceDeltaKg = 0,
   bottleDelta = 0,
   details = "",
@@ -203,7 +205,7 @@ const appendTransaction = ({
     userName,
     type,
     amount,
-    pointsDelta,
+    kgDelta,
     riceDeltaKg,
     bottleDelta,
     details,
@@ -272,7 +274,6 @@ export const dataStore = {
     const name = String(payload.name || "").trim();
     const email = String(payload.email || "").trim().toLowerCase();
     const password = String(payload.password || "").trim();
-    const initialPoints = Math.max(0, toNumber(payload.points, 0));
 
     if (!name || !email || !password) {
       return {
@@ -295,7 +296,7 @@ export const dataStore = {
       email,
       password,
       role: "user",
-      points: initialPoints,
+      weightKg: 0,
       createdAt: now(),
     };
 
@@ -358,8 +359,8 @@ export const dataStore = {
       user.password = String(updates.password);
     }
 
-    if (typeof updates.points !== "undefined") {
-      user.points = Math.max(0, toNumber(updates.points, user.points));
+    if (typeof updates.weightKg !== "undefined") {
+      user.weightKg = Math.max(0, toNumber(updates.weightKg, user.weightKg));
     }
 
     emit();
@@ -409,10 +410,10 @@ export const dataStore = {
     }
 
     const count = Math.max(1, Math.floor(toNumber(bottleCount, 1)));
-    const pointsEarned = count * toNumber(state.system.pointsPerBottle, 1);
+    const kgEarned = roundToTwo(count * toNumber(state.system.kgPerBottle, 0.025));
     const previousStorage = state.system.bottleStorage;
 
-    user.points = roundToTwo(user.points + pointsEarned);
+    user.weightKg = roundToTwo(user.weightKg + kgEarned);
     state.system.bottleStorage = Math.max(0, previousStorage + count);
 
     appendTransaction({
@@ -420,15 +421,15 @@ export const dataStore = {
       userName: user.name,
       type: "bottle",
       amount: count,
-      pointsDelta: pointsEarned,
+      kgDelta: kgEarned,
       riceDeltaKg: 0,
       bottleDelta: count,
-      details: `${count} bottle(s) inserted.`,
+      details: `${count} bottle(s) inserted. +${kgEarned} kg credited.`,
     });
 
     appendNotification({
       title: "Bottle Recorded",
-      message: `You earned ${pointsEarned} points from ${count} bottle(s).`,
+      message: `You earned ${kgEarned} kg from ${count} bottle(s).`,
       userId: user.id,
       type: "success",
     });
@@ -448,11 +449,67 @@ export const dataStore = {
     emit();
     return {
       ok: true,
-      pointsEarned,
+      kgEarned,
     };
   },
 
-  redeemRice(userId, pointsToRedeem) {
+  insertBottleFromHardware(userId, weightKg, binId = "hardware") {
+    const user = getUserById(userId);
+    if (!user) {
+      return { ok: false, error: "User not found." };
+    }
+
+    const kg = roundToTwo(Math.max(0, toNumber(weightKg, 0)));
+    if (kg === 0) {
+      return { ok: false, error: "Invalid weight from hardware." };
+    }
+
+    const previousStorage = state.system.bottleStorage;
+    user.weightKg = roundToTwo(user.weightKg + kg);
+    state.system.bottleStorage = previousStorage + 1;
+
+    appendTransaction({
+      userId: user.id,
+      userName: user.name,
+      type: "bottle",
+      amount: 1,
+      kgDelta: kg,
+      riceDeltaKg: 0,
+      bottleDelta: 1,
+      details: `1 bottle via ${binId} — ${kg} kg credited.`,
+    });
+
+    appendNotification({
+      title: "Bottle Recorded",
+      message: `${kg} kg credited from bin ${binId}.`,
+      userId: user.id,
+      type: "success",
+    });
+
+    if (
+      previousStorage < state.system.maxBottleCapacity &&
+      state.system.bottleStorage >= state.system.maxBottleCapacity
+    ) {
+      appendNotification({
+        title: "Bottle Storage Full",
+        message: "Bottle storage reached max capacity.",
+        targetRole: "admin",
+        type: "warning",
+      });
+    }
+
+    emit();
+    return { ok: true, kgEarned: kg };
+  },
+
+  updateBinAssignment(binId, userId, userName) {
+    if (!state.system.bins) state.system.bins = {};
+    state.system.bins[binId] = { assignedUserId: userId, assignedUserName: userName };
+    emit();
+    return { ok: true };
+  },
+
+  redeemRice(userId, kgToRedeem) {
     const user = getUserById(userId);
     if (!user) {
       return {
@@ -461,13 +518,12 @@ export const dataStore = {
       };
     }
 
-    const points = Math.max(1, Math.floor(toNumber(pointsToRedeem, 0)));
-    const riceKg = roundToTwo(points * toNumber(state.system.ricePerPoint, 0.1));
+    const riceKg = roundToTwo(Math.max(0.001, toNumber(kgToRedeem, 0)));
 
-    if (user.points < points) {
+    if (user.weightKg < riceKg) {
       return {
         ok: false,
-        error: "Not enough points for this redemption.",
+        error: "Not enough kg balance for this redemption.",
       };
     }
 
@@ -479,7 +535,7 @@ export const dataStore = {
     }
 
     const previousRice = state.system.riceStock;
-    user.points = roundToTwo(user.points - points);
+    user.weightKg = roundToTwo(user.weightKg - riceKg);
     state.system.riceStock = roundToTwo(state.system.riceStock - riceKg);
 
     appendTransaction({
@@ -487,15 +543,15 @@ export const dataStore = {
       userName: user.name,
       type: "redeem",
       amount: riceKg,
-      pointsDelta: -points,
+      kgDelta: -riceKg,
       riceDeltaKg: -riceKg,
       bottleDelta: 0,
-      details: `${points} points converted to ${riceKg} kg rice.`,
+      details: `${riceKg} kg plastic redeemed for ${riceKg} kg rice.`,
     });
 
     appendNotification({
       title: "Redemption Successful",
-      message: `You redeemed ${riceKg} kg rice using ${points} points.`,
+      message: `You redeemed ${riceKg} kg of plastic for ${riceKg} kg of rice.`,
       userId: user.id,
       type: "success",
     });
@@ -518,11 +574,7 @@ export const dataStore = {
 
   updateSystemConfig(updates) {
     const nextConfig = {
-      pointsPerBottle: toNumber(
-        updates.pointsPerBottle,
-        state.system.pointsPerBottle
-      ),
-      ricePerPoint: toNumber(updates.ricePerPoint, state.system.ricePerPoint),
+      kgPerBottle: toNumber(updates.kgPerBottle, state.system.kgPerBottle),
       maxBottleCapacity: Math.max(
         1,
         Math.floor(
@@ -531,7 +583,7 @@ export const dataStore = {
       ),
     };
 
-    if (nextConfig.pointsPerBottle <= 0 || nextConfig.ricePerPoint <= 0) {
+    if (nextConfig.kgPerBottle <= 0) {
       return {
         ok: false,
         error: "Configuration values must be greater than zero.",
@@ -548,8 +600,7 @@ export const dataStore = {
       userName: "System",
       type: "system",
       amount: 0,
-      details:
-        "System configuration updated: points per bottle, rice per point, and max bottle capacity.",
+      details: "System configuration updated: kg per bottle and max bottle capacity.",
     });
 
     emit();
@@ -574,7 +625,7 @@ export const dataStore = {
       userName: "System",
       type: "system",
       amount,
-      pointsDelta: 0,
+      kgDelta: 0,
       riceDeltaKg: amount,
       bottleDelta: 0,
       details: `Rice restocked by ${amount} kg.`,
@@ -601,7 +652,7 @@ export const dataStore = {
       userName: "System",
       type: "system",
       amount: 0,
-      pointsDelta: 0,
+      kgDelta: 0,
       riceDeltaKg: 0,
       bottleDelta: 0,
       details: "Bottle storage cleared by admin.",

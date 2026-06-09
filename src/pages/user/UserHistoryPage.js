@@ -40,7 +40,7 @@ export default function UserHistoryPage() {
               <th>Date</th>
               <th>Type</th>
               <th>Details</th>
-              <th>Points Delta</th>
+              <th>kg Delta</th>
               <th>Rice Delta</th>
             </tr>
           </thead>
@@ -59,7 +59,7 @@ export default function UserHistoryPage() {
                     <span className={`badge badge-${item.type}`}>{item.type}</span>
                   </td>
                   <td>{item.details}</td>
-                  <td>{formatSigned(item.pointsDelta)}</td>
+                  <td>{formatSigned(item.kgDelta, " kg")}</td>
                   <td>{formatSigned(item.riceDeltaKg, " kg")}</td>
                 </tr>
               ))

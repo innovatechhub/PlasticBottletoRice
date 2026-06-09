@@ -2,10 +2,13 @@ import { useMemo, useState } from "react";
 import { useData } from "../../app/DataContext";
 
 export default function AdminStoragePage() {
-  const { system, actions } = useData();
+  const { system, users, actions } = useData();
+  const householdUsers = useMemo(
+    () => users.filter((u) => u.role === "user"),
+    [users]
+  );
   const [config, setConfig] = useState({
-    pointsPerBottle: system.pointsPerBottle,
-    ricePerPoint: system.ricePerPoint,
+    kgPerBottle: system.kgPerBottle,
     maxBottleCapacity: system.maxBottleCapacity,
   });
   const [restockKg, setRestockKg] = useState(20);
@@ -85,12 +88,12 @@ export default function AdminStoragePage() {
             <small>{riceStatusLabel}</small>
           </div>
           <div className="sub-card">
-            <p>Points per Bottle</p>
-            <h3>{system.pointsPerBottle}</h3>
+            <p>kg per Bottle</p>
+            <h3>{system.kgPerBottle} kg</h3>
           </div>
           <div className="sub-card">
-            <p>Rice per Point</p>
-            <h3>{system.ricePerPoint} kg</h3>
+            <p>Exchange Rate</p>
+            <h3>1 kg = 1 kg rice</h3>
           </div>
         </div>
       </section>
@@ -99,33 +102,17 @@ export default function AdminStoragePage() {
         <h2 className="card-title">System Configuration</h2>
         <form className="split-grid" onSubmit={handleConfigSubmit}>
           <label>
-            Points per bottle
+            kg per bottle (avg bottle weight)
             <input
               className="input-field"
               type="number"
-              min="1"
-              value={config.pointsPerBottle}
+              min="0.001"
+              step="0.001"
+              value={config.kgPerBottle}
               onChange={(event) =>
                 setConfig((prev) => ({
                   ...prev,
-                  pointsPerBottle: Number(event.target.value),
-                }))
-              }
-              required
-            />
-          </label>
-          <label>
-            Rice per point (kg)
-            <input
-              className="input-field"
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={config.ricePerPoint}
-              onChange={(event) =>
-                setConfig((prev) => ({
-                  ...prev,
-                  ricePerPoint: Number(event.target.value),
+                  kgPerBottle: Number(event.target.value),
                 }))
               }
               required
@@ -151,6 +138,56 @@ export default function AdminStoragePage() {
             Save Configuration
           </button>
         </form>
+      </section>
+
+      <section className="card">
+        <h2 className="card-title">Hardware Bin Assignment</h2>
+        <p className="muted-text">
+          Assign a household user to each bin. Bottles dropped in that bin will
+          credit the assigned user's kg balance automatically.
+        </p>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Bin ID</th>
+                <th>Assigned User</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(system.bins || {}).map(([binId, bin]) => (
+                <tr key={binId}>
+                  <td>
+                    <code>{binId}</code>
+                  </td>
+                  <td>
+                    <select
+                      className="input-field"
+                      value={bin.assignedUserId || ""}
+                      onChange={(event) => {
+                        const user = householdUsers.find(
+                          (u) => u.id === event.target.value
+                        );
+                        actions.updateBinAssignment(
+                          binId,
+                          event.target.value,
+                          user?.name || ""
+                        );
+                      }}
+                    >
+                      <option value="">— Unassigned —</option>
+                      {householdUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="card">

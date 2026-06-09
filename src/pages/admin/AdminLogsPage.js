@@ -149,7 +149,7 @@ export default function AdminLogsPage() {
                 <th>User</th>
                 <th>Type</th>
                 <th>Details</th>
-                <th>Points</th>
+                <th>kg Delta</th>
                 <th>Rice</th>
               </tr>
             </thead>
@@ -169,7 +169,7 @@ export default function AdminLogsPage() {
                       <span className={`badge badge-${item.type}`}>{item.type}</span>
                     </td>
                     <td>{item.details}</td>
-                    <td>{item.pointsDelta}</td>
+                    <td>{item.kgDelta > 0 ? `+${item.kgDelta}` : item.kgDelta} kg</td>
                     <td>{item.riceDeltaKg} kg</td>
                   </tr>
                 ))

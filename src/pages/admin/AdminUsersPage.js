@@ -16,7 +16,7 @@ export default function AdminUsersPage() {
   const [editingForm, setEditingForm] = useState({
     name: "",
     email: "",
-    points: 0,
+    weightKg: 0,
     password: "",
   });
   const [status, setStatus] = useState("");
@@ -57,12 +57,12 @@ export default function AdminUsersPage() {
 
   const toCreditLog = (log) => {
     if (log.type === "bottle") {
-      return `Inserted ${log.amount} bottle(s), ${log.pointsDelta} credits earned.`;
+      return `Inserted ${log.amount} bottle(s), +${log.kgDelta} kg earned.`;
     }
 
-    return `Redeemed ${Math.abs(log.riceDeltaKg)} kg of rice, ${Math.abs(
-      log.pointsDelta
-    )} credits used.`;
+    return `Redeemed ${Math.abs(log.riceDeltaKg)} kg of rice, -${Math.abs(
+      log.kgDelta
+    )} kg used.`;
   };
 
   const startEdit = (user) => {
@@ -70,7 +70,7 @@ export default function AdminUsersPage() {
     setEditingForm({
       name: user.name,
       email: user.email,
-      points: user.points,
+      weightKg: user.weightKg,
       password: "",
     });
   };
@@ -80,7 +80,7 @@ export default function AdminUsersPage() {
     setError("");
     setStatus("");
 
-    const result = actions.addUser({ ...newUser, points: 0 });
+    const result = actions.addUser({ ...newUser });
     if (!result.ok) {
       setError(result.error);
       return;
@@ -215,7 +215,7 @@ export default function AdminUsersPage() {
               <tr>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Credits</th>
+                <th>Balance (kg)</th>
                 <th>View</th>
                 <th>Actions</th>
               </tr>
@@ -263,16 +263,17 @@ export default function AdminUsersPage() {
                           className="input-field"
                           type="number"
                           min="0"
-                          value={editingForm.points}
+                          step="0.001"
+                          value={editingForm.weightKg}
                           onChange={(event) =>
                             setEditingForm((prev) => ({
                               ...prev,
-                              points: Math.max(0, Number(event.target.value)),
+                              weightKg: Math.max(0, Number(event.target.value)),
                             }))
                           }
                         />
                       ) : (
-                        user.points
+                        `${(user.weightKg ?? 0).toFixed(3)} kg`
                       )}
                     </td>
                     <td>

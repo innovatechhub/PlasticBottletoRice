@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuth } from "../app/AuthContext";
 import NotificationBell from "./NotificationBell";
@@ -91,15 +91,10 @@ function MenuIcon({ name, className = "" }) {
 
 export default function AppLayout({ title, children }) {
   const { currentUser, logout } = useAuth();
-  const [menuSearch, setMenuSearch] = useState("");
   const isUser = currentUser?.role === "user";
   const links = currentUser?.role === "admin" ? adminLinks : userLinks;
 
-  const visibleLinks = useMemo(() => {
-    const term = menuSearch.trim().toLowerCase();
-    if (!term) return links;
-    return links.filter((link) => link.label.toLowerCase().includes(term));
-  }, [links, menuSearch]);
+  const visibleLinks = useMemo(() => links, [links]);
 
   if (isUser) {
     return (

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { doc, onSnapshot } from "firebase/firestore";
+import { onValue, ref } from "firebase/database";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
-import { firestoreDb } from "../../services/firebaseClient";
+import { realtimeDb } from "../../services/firebaseClient";
 import { cancelBinCommand, writeBinCommand } from "../../services/cloudSync";
 
 const activeSessionSteps = ["waiting", "active"];
@@ -131,19 +131,19 @@ export default function UserHomePage() {
   }, [insertStep, selectedBinId, sessionModalOpen, timerSeconds]);
 
   const subscribeToCommand = (binId) => {
-    if (!firestoreDb || !binId) {
+    if (!realtimeDb || !binId) {
       return;
     }
 
     unsubscribeRef.current?.();
-    unsubscribeRef.current = onSnapshot(
-      doc(firestoreDb, "bin_commands", binId),
+    unsubscribeRef.current = onValue(
+      ref(realtimeDb, `bin_commands/${binId}`),
       (snapshot) => {
         if (!snapshot.exists()) {
           return;
         }
 
-        const { status, weightKg } = snapshot.data();
+        const { status, weightKg } = snapshot.val();
         if (status === "active") {
           setInsertStep("active");
           return;
@@ -191,7 +191,7 @@ export default function UserHomePage() {
       return;
     }
 
-    if (!firestoreDb) {
+    if (!realtimeDb) {
       setInsertError("Firebase is not configured, so the bin cannot be activated.");
       return;
     }

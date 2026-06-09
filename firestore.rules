@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function validRole(role) {
+      return role in ['admin', 'user'];
+    }
+
+    function validUserPayload() {
+      return request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 0
+        && request.resource.data.role is string
+        && validRole(request.resource.data.role)
+        && request.resource.data.weightKg is number;
+    }
+
+    // Household/admin accounts stored in /users.
+    // Supports create/update/delete from authenticated admin-side clients.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && validUserPayload();
+      allow update: if isSignedIn() && validUserPayload();
+      allow delete: if isSignedIn();
+    }
+
+    // Activity logs for bottle insertion, redemption, and system events.
+    match /transactions/{transactionId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Notification collection used by the bell/dropdown feature.
+    match /notifications/{notificationId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // System configuration + inventory state, stored at /system/config.
+    match /system/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Persist currently selected app user per Firebase-authenticated client.
+    match /sessions/{sessionId} {
+      allow read, write: if isSignedIn() && request.auth.uid == sessionId;
+    }
+
+    // Backward compatibility for current app-state sync document.
+    match /pbtr_state/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Hardware bin events written by ESP32 (anonymous auth).
+    // The web app marks them processed: true after crediting the user.
+    match /bin_events/{eventId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Per-bin command documents (one doc per bin, keyed by binId).
+    // Web app writes "waiting"; ESP32 updates to "active" / "done" / "expired".
+    match /bin_commands/{binId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

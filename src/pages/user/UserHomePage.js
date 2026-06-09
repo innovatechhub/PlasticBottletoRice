@@ -165,7 +165,7 @@ export default function UserHomePage() {
       },
       () => {
         setInsertStep("error");
-        setInsertError("Lost connection to Firestore.");
+        setInsertError("Lost connection to Firebase.");
       }
     );
   };

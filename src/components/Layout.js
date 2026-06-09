@@ -153,67 +153,47 @@ export default function AppLayout({ title, children }) {
 
   return (
     <div className="app-shell">
-      <aside className="side-nav">
-        <div className="side-nav-top">
-          <div className="brand-block">
-            <div className="brand-logo-row">
-              <div className="brand-logo-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                  <path d="M10 11v6"/><path d="M14 11v6"/>
-                  <path d="M9 6V4h6v2"/>
-                </svg>
-              </div>
-              <div>
-                <p className="brand-tag">Plastic Bottle to Rice</p>
-                <h2>PBTR Control</h2>
-              </div>
-            </div>
+      <aside className="adm-sidebar">
+        <div className="adm-sidebar-brand">
+          <div className="adm-sidebar-logo">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
+              <path d="M5 6l1.5 14h11L19 6H5Z" fill="#ffffff" opacity="0.9"/>
+              <path d="M10 10v6M14 10v6" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M3 6h18" stroke="#ffffff" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M9 6V4h6v2" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
           </div>
-
-          <label className="side-search-wrap">
-            <span className="side-search-icon">SR</span>
-            <input
-              className="side-search-input"
-              type="text"
-              value={menuSearch}
-              onChange={(event) => setMenuSearch(event.target.value)}
-              placeholder="Search..."
-            />
-          </label>
-
-          <nav className="nav-list">
-            {visibleLinks.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  isActive ? "nav-link nav-link-active" : "nav-link"
-                }
-              >
-                <span className="nav-icon">
-                  <MenuIcon name={link.icon} />
-                </span>
-                <span>{link.label}</span>
-              </NavLink>
-            ))}
-            {visibleLinks.length === 0 ? (
-              <p className="side-empty-menu">No menu matches your search.</p>
-            ) : null}
-          </nav>
+          <span className="adm-sidebar-brand-text">smartBin <span className="adm-sidebar-brand-role">Admin</span></span>
         </div>
 
-        <div className="side-footer-actions">
-          <button type="button" className="side-action-btn" onClick={logout}>
-            <span className="nav-icon">
-              <MenuIcon name="logout" />
-            </span>
+        <p className="adm-sidebar-section-label">MAIN MENU</p>
+
+        <nav className="adm-sidebar-nav">
+          {visibleLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) =>
+                isActive ? "adm-nav-link adm-nav-link--active" : "adm-nav-link"
+              }
+            >
+              <span className="adm-nav-icon">
+                <MenuIcon name={link.icon} />
+              </span>
+              <span>{link.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="adm-sidebar-footer">
+          <button type="button" className="adm-logout-btn" onClick={logout}>
+            <MenuIcon name="logout" />
             <span>Logout</span>
           </button>
         </div>
       </aside>
 
-      <div className="main-panel">
+      <div className="main-panel adm-main-panel">
         <header className="top-bar">
           <div>
             <p className="muted-text">Unified Login Session</p>

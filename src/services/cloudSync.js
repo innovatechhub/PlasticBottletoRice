@@ -1,29 +1,20 @@
 import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
+  equalTo,
+  get,
+  onValue,
+  orderByChild,
   query,
-  setDoc,
-  where,
-} from "firebase/firestore";
+  ref,
+  remove,
+  set,
+  update,
+} from "firebase/database";
 import { dataStore, normalizeState } from "./localStore";
 import {
   ensureFirebaseSession,
-  firestoreDb,
+  realtimeDb,
   isFirebaseConfigured,
 } from "./firebaseClient";
-
-const USERS_COLLECTION = "users";
-const TRANSACTIONS_COLLECTION = "transactions";
-const NOTIFICATIONS_COLLECTION = "notifications";
-const SYSTEM_COLLECTION = "system";
-const SYSTEM_DOC_ID = "config";
-const LEGACY_STATE_COLLECTION = "pbtr_state";
-const LEGACY_STATE_DOC_ID = "main";
-const BIN_EVENTS_COLLECTION = "bin_events";
 
 const stableHash = (value) => JSON.stringify(value);
 
@@ -33,7 +24,8 @@ let applyingRemote = false;
 let lastSyncedHash = "";
 let writeChain = Promise.resolve();
 
-const processedBinCommands = new Set();   // prevent double-crediting on rapid re-fires
+const processedBinCommands = new Set();
+const processedBinEvents = new Set();
 
 const remoteSnapshotState = {
   users: [],
@@ -59,13 +51,14 @@ export function getSyncMode() {
   return syncMode;
 }
 
-const extractOrderedDocs = (snapshot, key = "createdAt") =>
-  snapshot.docs
-    .map((item) => ({
-      id: item.id,
-      ...item.data(),
-    }))
-    .sort((a, b) => String(b[key] || "").localeCompare(String(a[key] || "")));
+const objectToSortedArray = (val, sortKey = "createdAt") => {
+  if (!val) return [];
+  return Object.entries(val)
+    .map(([id, data]) => ({ id, ...data }))
+    .sort((a, b) =>
+      String(b[sortKey] || "").localeCompare(String(a[sortKey] || ""))
+    );
+};
 
 const setRemoteState = (type, items) => {
   remoteSnapshotState[type] = items;
@@ -87,15 +80,11 @@ const buildStateFromRemote = () =>
   });
 
 const applyRemoteToLocal = () => {
-  if (!allReady()) {
-    return;
-  }
+  if (!allReady()) return;
 
   const normalized = buildStateFromRemote();
   const hash = stableHash(normalized);
-  if (hash === lastSyncedHash) {
-    return;
-  }
+  if (hash === lastSyncedHash) return;
 
   applyingRemote = true;
   dataStore.replaceRawState(normalized);
@@ -103,73 +92,55 @@ const applyRemoteToLocal = () => {
   lastSyncedHash = hash;
 };
 
-const deleteMissingDocs = async (collectionName, localIds, remoteIds) => {
+const deleteMissingDocs = async (path, localIds, remoteIds) => {
   const deletes = [];
   remoteIds.forEach((id) => {
     if (!localIds.has(id)) {
-      deletes.push(deleteDoc(doc(firestoreDb, collectionName, id)));
+      deletes.push(remove(ref(realtimeDb, `${path}/${id}`)));
     }
   });
-  if (deletes.length > 0) {
-    await Promise.all(deletes);
-  }
+  if (deletes.length > 0) await Promise.all(deletes);
 };
 
 const writeUsers = async (users) => {
   const localIds = new Set();
   for (const user of users) {
     localIds.add(user.id);
-    await setDoc(doc(firestoreDb, USERS_COLLECTION, user.id), user, {
-      merge: true,
-    });
+    await set(ref(realtimeDb, `users/${user.id}`), user);
   }
-  await deleteMissingDocs(USERS_COLLECTION, localIds, remoteIdSets.users);
+  await deleteMissingDocs("users", localIds, remoteIdSets.users);
 };
 
 const writeTransactions = async (transactions) => {
   const localIds = new Set();
   for (const tx of transactions) {
     localIds.add(tx.id);
-    await setDoc(doc(firestoreDb, TRANSACTIONS_COLLECTION, tx.id), tx, {
-      merge: true,
-    });
+    await set(ref(realtimeDb, `transactions/${tx.id}`), tx);
   }
-  await deleteMissingDocs(
-    TRANSACTIONS_COLLECTION,
-    localIds,
-    remoteIdSets.transactions
-  );
+  await deleteMissingDocs("transactions", localIds, remoteIdSets.transactions);
 };
 
 const writeNotifications = async (notifications) => {
   const localIds = new Set();
   for (const notification of notifications) {
     localIds.add(notification.id);
-    await setDoc(
-      doc(firestoreDb, NOTIFICATIONS_COLLECTION, notification.id),
-      notification,
-      { merge: true }
-    );
+    await set(ref(realtimeDb, `notifications/${notification.id}`), notification);
   }
   await deleteMissingDocs(
-    NOTIFICATIONS_COLLECTION,
+    "notifications",
     localIds,
     remoteIdSets.notifications
   );
 };
 
 const writeSystemConfig = async (systemConfig) => {
-  await setDoc(doc(firestoreDb, SYSTEM_COLLECTION, SYSTEM_DOC_ID), systemConfig, {
-    merge: true,
-  });
+  await set(ref(realtimeDb, "system/config"), systemConfig);
 };
 
 const pushCollections = async (rawState) => {
   const normalized = normalizeState(rawState);
   const hash = stableHash(normalized);
-  if (hash === lastSyncedHash) {
-    return;
-  }
+  if (hash === lastSyncedHash) return;
 
   await writeUsers(normalized.users);
   await writeTransactions(normalized.transactions);
@@ -187,37 +158,29 @@ const queuePush = (rawState) => {
 };
 
 const bootstrapRemote = async () => {
-  const [usersSnap, txSnap, notificationSnap, systemSnap, legacyStateSnap] =
-    await Promise.all([
-    getDocs(collection(firestoreDb, USERS_COLLECTION)),
-    getDocs(collection(firestoreDb, TRANSACTIONS_COLLECTION)),
-    getDocs(collection(firestoreDb, NOTIFICATIONS_COLLECTION)),
-    getDoc(doc(firestoreDb, SYSTEM_COLLECTION, SYSTEM_DOC_ID)),
-    getDoc(doc(firestoreDb, LEGACY_STATE_COLLECTION, LEGACY_STATE_DOC_ID)),
+  const [usersSnap, txSnap, notifSnap, sysSnap] = await Promise.all([
+    get(ref(realtimeDb, "users")),
+    get(ref(realtimeDb, "transactions")),
+    get(ref(realtimeDb, "notifications")),
+    get(ref(realtimeDb, "system/config")),
   ]);
 
-  setRemoteState("users", extractOrderedDocs(usersSnap, "createdAt"));
-  setRemoteState("transactions", extractOrderedDocs(txSnap, "timestamp"));
+  setRemoteState("users", objectToSortedArray(usersSnap.val(), "createdAt"));
+  setRemoteState("transactions", objectToSortedArray(txSnap.val(), "timestamp"));
   setRemoteState(
     "notifications",
-    extractOrderedDocs(notificationSnap, "createdAt")
+    objectToSortedArray(notifSnap.val(), "createdAt")
   );
-  setRemoteState("system", systemSnap.exists() ? systemSnap.data() : null);
+  setRemoteState("system", sysSnap.exists() ? sysSnap.val() : null);
 
   const hasRemoteData =
-    usersSnap.size > 0 ||
-    txSnap.size > 0 ||
-    notificationSnap.size > 0 ||
-    systemSnap.exists();
+    usersSnap.exists() ||
+    txSnap.exists() ||
+    notifSnap.exists() ||
+    sysSnap.exists();
 
   if (hasRemoteData) {
     applyRemoteToLocal();
-  } else if (legacyStateSnap.exists() && legacyStateSnap.data()?.state) {
-    const normalizedLegacy = normalizeState(legacyStateSnap.data().state);
-    applyingRemote = true;
-    dataStore.replaceRawState(normalizedLegacy);
-    applyingRemote = false;
-    await pushCollections(normalizedLegacy);
   } else {
     const cleanInitialState = normalizeState({});
     applyingRemote = true;
@@ -228,6 +191,9 @@ const bootstrapRemote = async () => {
 };
 
 const processBinEvent = async (event) => {
+  if (processedBinEvents.has(event.id)) return;
+  processedBinEvents.add(event.id);
+
   try {
     const rawState = dataStore.getRawState();
     const bin = rawState.system.bins?.[event.binId];
@@ -243,22 +209,20 @@ const processBinEvent = async (event) => {
       event.binId
     );
 
-    // Mark processed so the listener doesn't fire again
-    await setDoc(
-      doc(firestoreDb, BIN_EVENTS_COLLECTION, event.id),
-      { processed: true },
-      { merge: true }
-    );
+    await update(ref(realtimeDb, `bin_events/${event.id}`), {
+      processed: true,
+    });
   } catch (err) {
+    processedBinEvents.delete(event.id);
     console.error("processBinEvent error:", err);
   }
 };
 
 const startRemoteListeners = () => {
-  onSnapshot(
-    collection(firestoreDb, USERS_COLLECTION),
+  onValue(
+    ref(realtimeDb, "users"),
     (snapshot) => {
-      setRemoteState("users", extractOrderedDocs(snapshot, "createdAt"));
+      setRemoteState("users", objectToSortedArray(snapshot.val(), "createdAt"));
       applyRemoteToLocal();
     },
     () => {
@@ -266,10 +230,13 @@ const startRemoteListeners = () => {
     }
   );
 
-  onSnapshot(
-    collection(firestoreDb, TRANSACTIONS_COLLECTION),
+  onValue(
+    ref(realtimeDb, "transactions"),
     (snapshot) => {
-      setRemoteState("transactions", extractOrderedDocs(snapshot, "timestamp"));
+      setRemoteState(
+        "transactions",
+        objectToSortedArray(snapshot.val(), "timestamp")
+      );
       applyRemoteToLocal();
     },
     () => {
@@ -277,10 +244,13 @@ const startRemoteListeners = () => {
     }
   );
 
-  onSnapshot(
-    collection(firestoreDb, NOTIFICATIONS_COLLECTION),
+  onValue(
+    ref(realtimeDb, "notifications"),
     (snapshot) => {
-      setRemoteState("notifications", extractOrderedDocs(snapshot, "createdAt"));
+      setRemoteState(
+        "notifications",
+        objectToSortedArray(snapshot.val(), "createdAt")
+      );
       applyRemoteToLocal();
     },
     () => {
@@ -288,10 +258,10 @@ const startRemoteListeners = () => {
     }
   );
 
-  onSnapshot(
-    doc(firestoreDb, SYSTEM_COLLECTION, SYSTEM_DOC_ID),
+  onValue(
+    ref(realtimeDb, "system/config"),
     (snapshot) => {
-      setRemoteState("system", snapshot.exists() ? snapshot.data() : null);
+      setRemoteState("system", snapshot.exists() ? snapshot.val() : null);
       applyRemoteToLocal();
     },
     () => {
@@ -299,31 +269,30 @@ const startRemoteListeners = () => {
     }
   );
 
-  // Listen for new bottle events from hardware bins
-  onSnapshot(
+  // Listen for new unprocessed bin events from hardware bins
+  onValue(
     query(
-      collection(firestoreDb, BIN_EVENTS_COLLECTION),
-      where("processed", "==", false)
+      ref(realtimeDb, "bin_events"),
+      orderByChild("processed"),
+      equalTo(false)
     ),
     (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const event = { id: change.doc.id, ...change.doc.data() };
-          processBinEvent(event);
-        }
+      if (!snapshot.exists()) return;
+      snapshot.forEach((child) => {
+        const event = { id: child.key, ...child.val() };
+        processBinEvent(event);
       });
     },
     () => {}
   );
 
-  // Listen for bin_commands status changes (written by ESP32 after detecting a bottle)
-  onSnapshot(
-    collection(firestoreDb, "bin_commands"),
+  // Listen for bin_commands status changes (written by ESP32 after bottle detected)
+  onValue(
+    ref(realtimeDb, "bin_commands"),
     (snapshot) => {
-      snapshot.docChanges().forEach(async (change) => {
-        if (change.type !== "added" && change.type !== "modified") return;
-
-        const data = { id: change.doc.id, ...change.doc.data() };
+      if (!snapshot.exists()) return;
+      snapshot.forEach((child) => {
+        const data = { id: child.key, ...child.val() };
 
         if (data.status === "done" && data.userId && data.weightKg > 0) {
           const key = `${data.id}|${data.requestedAt}`;
@@ -336,12 +305,10 @@ const startRemoteListeners = () => {
             data.binId || data.id
           );
 
-          // Reset so the document is reusable for the next insert
-          await setDoc(
-            doc(firestoreDb, "bin_commands", data.id),
-            { status: "idle", weightKg: 0 },
-            { merge: true }
-          ).catch(() => {});
+          update(ref(realtimeDb, `bin_commands/${data.id}`), {
+            status: "idle",
+            weightKg: 0,
+          }).catch(() => {});
         }
       });
     },
@@ -350,7 +317,7 @@ const startRemoteListeners = () => {
 };
 
 export function startCloudSync() {
-  if (started || !isFirebaseConfigured || !firestoreDb) {
+  if (started || !isFirebaseConfigured || !realtimeDb) {
     return;
   }
   started = true;
@@ -373,7 +340,6 @@ export function startCloudSync() {
       queuePush(rawState);
     });
 
-    // Ensure required baseline accounts/config are reflected in Firestore collections.
     queuePush(dataStore.getRawState());
   };
 
@@ -382,15 +348,15 @@ export function startCloudSync() {
   });
 }
 
-// Called by the UI when a user requests a bottle insert via the web button.
-// Writes a "waiting" command to Firestore; the ESP32 polls this and activates.
+// Called by UI when a user requests a bottle insert.
+// Writes "waiting" to RTDB; the ESP32 polls and activates.
 export async function writeBinCommand(binId, userId, userName) {
-  if (!firestoreDb) {
+  if (!realtimeDb) {
     return { ok: false, error: "Firebase not configured." };
   }
   try {
     await ensureFirebaseSession();
-    await setDoc(doc(firestoreDb, "bin_commands", binId), {
+    await set(ref(realtimeDb, `bin_commands/${binId}`), {
       binId,
       userId,
       userName,
@@ -406,15 +372,33 @@ export async function writeBinCommand(binId, userId, userName) {
 
 // Cancels an in-progress bin command (user clicked Cancel).
 export async function cancelBinCommand(binId) {
-  if (!firestoreDb) return { ok: false };
+  if (!realtimeDb) return { ok: false };
   try {
-    await setDoc(
-      doc(firestoreDb, "bin_commands", binId),
-      { status: "idle" },
-      { merge: true }
-    );
+    await update(ref(realtimeDb, `bin_commands/${binId}`), { status: "idle" });
     return { ok: true };
   } catch {
     return { ok: false };
+  }
+}
+
+// Triggers the rice dispenser on a bin after a successful redemption.
+// The ESP32 polls this and opens/closes the dispenser servo.
+export async function writeRiceCommand(binId, userId, userName, amountKg) {
+  if (!realtimeDb) {
+    return { ok: false, error: "Firebase not configured." };
+  }
+  try {
+    await ensureFirebaseSession();
+    await set(ref(realtimeDb, `rice_commands/${binId}`), {
+      binId,
+      userId,
+      userName,
+      amountKg,
+      status: "dispensing",
+      requestedAt: new Date().toISOString(),
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
 }

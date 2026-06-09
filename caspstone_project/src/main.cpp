@@ -10,20 +10,26 @@
 #define WIFI_SSID        "KONEK>"
 #define WIFI_PASSWORD    "1234567890"
 
-#define FIREBASE_API_KEY  "AIzaSyCl-w8lOqUnOV1Del22js2783sYgapd4hw"
-#define FIREBASE_PROJECT  "hardwareadmin-e1793"
+#define FIREBASE_API_KEY  "AIzaSyCD0HR0qKk5BDbT1xD8OGSn06Y_80MP3ZI"
+#define FIREBASE_DB_URL   "https://plastictorice-default-rtdb.firebaseio.com"
 #define BIN_ID            "bin_001"
+
+// ─────────────────────────── Bottle-input servo ──────────────────────────────
+#define SERVO_PIN   13
+Servo pusherServo;
+const int SERVO_REST = 90;
+const int SERVO_PUSH = 180;
+
+// ─────────────────────────── Rice-dispenser servo ────────────────────────────
+#define RICE_SERVO_PIN  14
+Servo riceServo;
+const int RICE_OPEN  = 8;
+const int RICE_CLOSE = 38;
 
 // ─────────────────────────── HX711 ───────────────────────────────────────────
 #define LOADCELL_DOUT_PIN 4
 #define LOADCELL_SCK_PIN  5
 HX711 scale;
-
-// ─────────────────────────── Servo ───────────────────────────────────────────
-#define SERVO_PIN   13
-Servo pusherServo;
-const int SERVO_REST = 90;
-const int SERVO_PUSH = 180;
 
 // ─────────────────────────── Weight Config ───────────────────────────────────
 float calibration_factor      = -540.0;
@@ -34,9 +40,9 @@ const int   NUM_SAMPLES       = 10;
 const int   SETTLE_SAMPLES    = 8;
 const float SETTLE_TOLERANCE  = 0.50;
 const unsigned long SETTLE_TIMEOUT_MS  = 6000;
-const unsigned long SESSION_TIMEOUT_MS = 60000;  // user has 60 s to drop bottle
+const unsigned long SESSION_TIMEOUT_MS = 60000;
 
-// ─────────────────────────── Firebase token cache ────────────────────────────
+// ─────────────────────────── Firebase token ──────────────────────────────────
 String   idToken     = "";
 uint32_t tokenExpiry = 0;
 
@@ -47,11 +53,8 @@ void connectWiFi()
   Serial.print("Connecting to WiFi");
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 40) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
+    delay(500); Serial.print("."); attempts++;
   }
-
   if (WiFi.status() == WL_CONNECTED) {
     Serial.printf("\nWiFi connected — IP: %s\n", WiFi.localIP().toString().c_str());
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
@@ -63,24 +66,20 @@ void connectWiFi()
   }
 }
 
-// ─────────────────────────── Anonymous Firebase auth ─────────────────────────
+// ─────────────────────────── Firebase anonymous auth ─────────────────────────
 bool refreshToken()
 {
-  WiFiClientSecure client;
-  client.setInsecure();
+  WiFiClientSecure client; client.setInsecure();
   HTTPClient http;
   String url = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=";
   url += FIREBASE_API_KEY;
-
   http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
   int code = http.POST("{\"returnSecureToken\":true}");
   if (code != 200) { Serial.printf("Auth failed (HTTP %d)\n", code); http.end(); return false; }
-
   DynamicJsonDocument doc(2048);
   deserializeJson(doc, http.getString());
   http.end();
-
   idToken = doc["idToken"].as<String>();
   uint32_t expiresIn = doc["expiresIn"] | 3600;
   tokenExpiry = millis() + (expiresIn - 60) * 1000UL;
@@ -95,9 +94,52 @@ bool ensureToken()
   return true;
 }
 
-// ─────────────────────────── bin_commands GET ────────────────────────────────
+// ─────────────────────────── Realtime Database helpers ───────────────────────
+// GET a node — returns HTTP status, fills payload with the JSON value.
+int rtdbGet(const String& path, String& payload)
+{
+  if (!ensureToken()) return -1;
+  WiFiClientSecure client; client.setInsecure();
+  HTTPClient http;
+  String url = String(FIREBASE_DB_URL) + path + ".json?auth=" + idToken;
+  http.begin(client, url);
+  int code = http.GET();
+  if (code == 200) payload = http.getString();
+  http.end();
+  return code;
+}
+
+// PATCH a node — merges body fields into the existing node.
+int rtdbPatch(const String& path, const String& body)
+{
+  if (!ensureToken()) return -1;
+  WiFiClientSecure client; client.setInsecure();
+  HTTPClient http;
+  String url = String(FIREBASE_DB_URL) + path + ".json?auth=" + idToken;
+  http.begin(client, url);
+  http.addHeader("Content-Type", "application/json");
+  int code = http.sendRequest("PATCH", body);
+  http.end();
+  return code;
+}
+
+// POST to a node — creates a new child with an auto-generated key.
+int rtdbPost(const String& path, const String& body)
+{
+  if (!ensureToken()) return -1;
+  WiFiClientSecure client; client.setInsecure();
+  HTTPClient http;
+  String url = String(FIREBASE_DB_URL) + path + ".json?auth=" + idToken;
+  http.begin(client, url);
+  http.addHeader("Content-Type", "application/json");
+  int code = http.POST(body);
+  http.end();
+  return code;
+}
+
+// ─────────────────────────── bin_commands ────────────────────────────────────
 struct BinCommand {
-  String status;    // idle | waiting | active | done | expired
+  String status;
   String userId;
   String userName;
 };
@@ -105,114 +147,74 @@ struct BinCommand {
 BinCommand checkBinCommand()
 {
   BinCommand cmd = { "idle", "", "" };
-  if (!ensureToken()) return cmd;
-
-  WiFiClientSecure client;
-  client.setInsecure();
-  HTTPClient http;
-
-  String url = "https://firestore.googleapis.com/v1/projects/";
-  url += FIREBASE_PROJECT;
-  url += "/databases/(default)/documents/bin_commands/";
-  url += BIN_ID;
-
-  http.begin(client, url);
-  http.addHeader("Authorization", "Bearer " + idToken);
-  int code = http.GET();
-
-  if (code != 200) { http.end(); return cmd; }   // 404 → no doc → idle
-
-  DynamicJsonDocument doc(4096);
-  deserializeJson(doc, http.getString());
-  http.end();
-
-  if (!doc.containsKey("fields")) return cmd;
-  JsonObject fields = doc["fields"];
-
-  auto getStr = [&](const char* key) -> String {
-    if (fields.containsKey(key) && fields[key].containsKey("stringValue"))
-      return fields[key]["stringValue"].as<String>();
-    return "";
-  };
-
-  cmd.status   = getStr("status");
-  cmd.userId   = getStr("userId");
-  cmd.userName = getStr("userName");
+  String payload;
+  if (rtdbGet("/bin_commands/" BIN_ID, payload) != 200) return cmd;
+  if (payload == "null") return cmd;
+  DynamicJsonDocument doc(1024);
+  if (deserializeJson(doc, payload)) return cmd;
+  cmd.status   = doc["status"]   | "idle";
+  cmd.userId   = doc["userId"]   | "";
+  cmd.userName = doc["userName"] | "";
   return cmd;
 }
 
-// ─────────────────────────── bin_commands PATCH ──────────────────────────────
-// Partial update: only the listed fields in the updateMask are written.
-bool patchBinCommand(const char* newStatus, float weightKg = 0.0)
+bool patchBinCommand(const char* status, float weightKg = 0.0)
 {
-  if (!ensureToken()) return false;
-
-  WiFiClientSecure client;
-  client.setInsecure();
-  HTTPClient http;
-
-  String url = "https://firestore.googleapis.com/v1/projects/";
-  url += FIREBASE_PROJECT;
-  url += "/databases/(default)/documents/bin_commands/";
-  url += BIN_ID;
-  url += "?updateMask.fieldPaths=status";
-  if (weightKg > 0) url += "&updateMask.fieldPaths=weightKg";
-
-  StaticJsonDocument<256> payload;
-  JsonObject fields = payload.createNestedObject("fields");
-  fields["status"]["stringValue"] = newStatus;
-  if (weightKg > 0) fields["weightKg"]["doubleValue"] = weightKg;
-
-  String body;
-  serializeJson(payload, body);
-
-  http.begin(client, url);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Authorization", "Bearer " + idToken);
-
-  int code = http.sendRequest("PATCH", body);
-  http.end();
-
-  Serial.printf("patchBinCommand → %s (HTTP %d)\n", newStatus, code);
+  StaticJsonDocument<128> payload;
+  payload["status"] = status;
+  if (weightKg > 0) payload["weightKg"] = weightKg;
+  String body; serializeJson(payload, body);
+  int code = rtdbPatch("/bin_commands/" BIN_ID, body);
+  Serial.printf("patchBinCommand → %s (HTTP %d)\n", status, code);
   return code == 200;
 }
 
-// ─────────────────────────── bin_events POST (transaction log) ───────────────
-bool sendBinEvent(float weightG)
-{
-  if (!ensureToken()) return false;
+// ─────────────────────────── rice_commands ───────────────────────────────────
+struct RiceCommand {
+  String status;
+  String userId;
+  float  amountKg;
+};
 
+RiceCommand checkRiceCommand()
+{
+  RiceCommand cmd = { "idle", "", 0.0 };
+  String payload;
+  if (rtdbGet("/rice_commands/" BIN_ID, payload) != 200) return cmd;
+  if (payload == "null") return cmd;
+  DynamicJsonDocument doc(1024);
+  if (deserializeJson(doc, payload)) return cmd;
+  cmd.status   = doc["status"]   | "idle";
+  cmd.userId   = doc["userId"]   | "";
+  cmd.amountKg = doc["amountKg"] | 0.0f;
+  return cmd;
+}
+
+bool patchRiceCommand(const char* status)
+{
+  StaticJsonDocument<64> payload;
+  payload["status"] = status;
+  String body; serializeJson(payload, body);
+  int code = rtdbPatch("/rice_commands/" BIN_ID, body);
+  Serial.printf("patchRiceCommand → %s (HTTP %d)\n", status, code);
+  return code == 200;
+}
+
+// ─────────────────────────── bin_events log ──────────────────────────────────
+void sendBinEvent(float weightG)
+{
   time_t now_t = time(nullptr);
   char ts[30];
   strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%SZ", gmtime(&now_t));
 
-  StaticJsonDocument<512> payload;
-  JsonObject fields = payload.createNestedObject("fields");
-  fields["binId"]["stringValue"]      = BIN_ID;
-  fields["weightG"]["doubleValue"]    = weightG;
-  fields["weightKg"]["doubleValue"]   = weightG / 1000.0;
-  fields["timestamp"]["stringValue"]  = ts;
-  fields["processed"]["booleanValue"] = false;
-
-  String body;
-  serializeJson(payload, body);
-
-  WiFiClientSecure client;
-  client.setInsecure();
-  HTTPClient http;
-
-  String url = "https://firestore.googleapis.com/v1/projects/";
-  url += FIREBASE_PROJECT;
-  url += "/databases/(default)/documents/bin_events";
-
-  http.begin(client, url);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Authorization", "Bearer " + idToken);
-
-  int code = http.POST(body);
-  http.end();
-
-  return (code == 200 || code == 201);
+  StaticJsonDocument<256> payload;
+  payload["binId"]     = BIN_ID;
+  payload["weightG"]   = weightG;
+  payload["weightKg"]  = weightG / 1000.0;
+  payload["timestamp"] = ts;
+  payload["processed"] = false;
+  String body; serializeJson(payload, body);
+  rtdbPost("/bin_events", body);
 }
 
 // ─────────────────────────── Scale helpers ───────────────────────────────────
@@ -237,7 +239,7 @@ float getAverageWeight()
 float waitForSettle()
 {
   float buf[SETTLE_SAMPLES] = {};
-  int   filled = 0;
+  int filled = 0;
   unsigned long start = millis();
   while (millis() - start < SETTLE_TIMEOUT_MS) {
     float w = quickRead();
@@ -257,6 +259,7 @@ float waitForSettle()
   return 0;
 }
 
+// ─────────────────────────── Actuators ───────────────────────────────────────
 void pushBottle()
 {
   pusherServo.write(SERVO_PUSH);
@@ -266,12 +269,27 @@ void pushBottle()
   pusherServo.write(SERVO_REST);
 }
 
+void dispenseRice()
+{
+  Serial.println("Dispensing rice...");
+  riceServo.write(RICE_CLOSE);
+  delay(3000);
+  riceServo.write(RICE_OPEN);
+  delay(3000);
+  riceServo.write(RICE_CLOSE);
+  Serial.println("Rice dispensed.");
+}
+
 // ─────────────────────────── Setup ───────────────────────────────────────────
 void setup()
 {
   Serial.begin(115200);
+
   pusherServo.attach(SERVO_PIN);
   pusherServo.write(SERVO_REST);
+
+  riceServo.attach(RICE_SERVO_PIN);
+  riceServo.write(RICE_CLOSE);
 
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   scale.set_scale(calibration_factor);
@@ -286,7 +304,6 @@ void setup()
 // ─────────────────────────── Loop ────────────────────────────────────────────
 void loop()
 {
-  // ── Reconnect if WiFi dropped ─────────────────────────────────────────────
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi lost — reconnecting...");
     connectWiFi();
@@ -294,51 +311,53 @@ void loop()
     return;
   }
 
-  // ── Poll Firestore for a web-triggered command ────────────────────────────
-  BinCommand cmd = checkBinCommand();
+  // ── 1. Bottle-input command ───────────────────────────────────────────────
+  BinCommand binCmd = checkBinCommand();
 
-  if (cmd.status != "waiting") {
-    delay(5000);   // nothing pending — check again in 5 s
+  if (binCmd.status == "waiting") {
+    Serial.printf("Bottle command from '%s' — activating.\n", binCmd.userName.c_str());
+    patchBinCommand("active");
+    scale.tare();
+    Serial.printf("Ready — user has %lu s to drop a bottle.\n",
+                  SESSION_TIMEOUT_MS / 1000);
+
+    float weight = 0;
+    unsigned long deadline = millis() + SESSION_TIMEOUT_MS;
+    while (millis() < deadline) {
+      float raw = quickRead();
+      if (raw >= MIN_BOTTLE_WEIGHT) {
+        weight = waitForSettle();
+        if (weight >= MIN_BOTTLE_WEIGHT && weight <= MAX_BOTTLE_WEIGHT) break;
+        weight = 0;
+      }
+      delay(200);
+    }
+
+    if (weight >= MIN_BOTTLE_WEIGHT && weight <= MAX_BOTTLE_WEIGHT) {
+      Serial.printf("Bottle confirmed: %.2f g — pushing.\n", weight);
+      pushBottle();
+      patchBinCommand("done", weight / 1000.0);
+      sendBinEvent(weight);
+      Serial.println("Bottle push done.");
+      delay(1500);
+    } else {
+      patchBinCommand("expired");
+      Serial.println("Bottle session expired.");
+    }
     return;
   }
 
-  // ── Command received: "waiting" ───────────────────────────────────────────
-  Serial.printf("Command from '%s' — activating bin.\n", cmd.userName.c_str());
-  patchBinCommand("active");
-  scale.tare();   // fresh zero for this session
-  Serial.printf("Ready. Waiting up to %lu s for a bottle...\n",
-                SESSION_TIMEOUT_MS / 1000);
+  // ── 2. Rice-dispense command ──────────────────────────────────────────────
+  RiceCommand riceCmd = checkRiceCommand();
 
-  // ── Wait for user to drop a bottle (SESSION_TIMEOUT_MS window) ───────────
-  float weight = 0;
-  unsigned long deadline = millis() + SESSION_TIMEOUT_MS;
-
-  while (millis() < deadline) {
-    float raw = quickRead();
-    if (raw >= MIN_BOTTLE_WEIGHT) {
-      weight = waitForSettle();
-      if (weight >= MIN_BOTTLE_WEIGHT && weight <= MAX_BOTTLE_WEIGHT) break;
-      weight = 0;   // settle returned out-of-range — keep waiting
-    }
-    delay(200);
+  if (riceCmd.status == "dispensing") {
+    Serial.printf("Rice command: %.3f kg for '%s'\n",
+                  riceCmd.amountKg, riceCmd.userId.c_str());
+    dispenseRice();
+    patchRiceCommand("done");
+    delay(1000);
+    return;
   }
 
-  // ── Bottle confirmed ──────────────────────────────────────────────────────
-  if (weight >= MIN_BOTTLE_WEIGHT && weight <= MAX_BOTTLE_WEIGHT) {
-    Serial.printf("Bottle: %.2f g — pushing...\n", weight);
-    pushBottle();
-
-    float wKg = weight / 1000.0;
-    patchBinCommand("done", wKg);   // web app credits the user
-    sendBinEvent(weight);           // also logs in bin_events for history
-
-    Serial.println("Push done.");
-    delay(1500);
-  } else {
-    // ── Session expired — no bottle placed ───────────────────────────────
-    patchBinCommand("expired");
-    Serial.println("Session expired — no bottle detected.");
-  }
-
-  delay(2000);   // brief cooldown before polling again
+  delay(5000);
 }

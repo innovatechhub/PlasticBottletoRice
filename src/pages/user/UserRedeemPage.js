@@ -1,28 +1,68 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
+import { onValue, ref } from "firebase/database";
+import { realtimeDb } from "../../services/firebaseClient";
+import { writeRiceCommand } from "../../services/cloudSync";
 
 export default function UserRedeemPage() {
   const { currentUser } = useAuth();
   const { system, actions } = useData();
+
   const [kgToRedeem, setKgToRedeem] = useState(0.5);
-  const [feedback, setFeedback] = useState("");
+  const [selectedBinId, setSelectedBinId] = useState("");
   const [error, setError] = useState("");
 
-  // 1 kg plastic = 1 kg rice
-  const estimatedRice = useMemo(
-    () => Number(kgToRedeem || 0),
-    [kgToRedeem]
+  // dispenseStep: idle | dispensing | done | error
+  const [dispenseStep, setDispenseStep] = useState("idle");
+  const [dispensedKg, setDispensedKg] = useState(0);
+
+  const unsubscribeRef = useRef(null);
+
+  const estimatedRice = useMemo(() => Number(kgToRedeem || 0), [kgToRedeem]);
+
+  const availableBins = useMemo(
+    () => Object.keys(system.bins || {}),
+    [system.bins]
   );
 
-  const handleRedeem = (event) => {
+  // Auto-select the only bin
+  useEffect(() => {
+    if (availableBins.length === 1 && !selectedBinId) {
+      setSelectedBinId(availableBins[0]);
+    }
+  }, [availableBins, selectedBinId]);
+
+  // Cleanup Firestore listener on unmount
+  useEffect(() => {
+    return () => {
+      if (unsubscribeRef.current) unsubscribeRef.current();
+    };
+  }, []);
+
+  const subscribeToRiceCommand = (binId) => {
+    if (!realtimeDb || !binId) return;
+    if (unsubscribeRef.current) unsubscribeRef.current();
+
+    unsubscribeRef.current = onValue(
+      ref(realtimeDb, `rice_commands/${binId}`),
+      (snap) => {
+        if (!snap.exists()) return;
+        if (snap.val().status === "done") {
+          setDispenseStep("done");
+          unsubscribeRef.current?.();
+          unsubscribeRef.current = null;
+        }
+      },
+      () => setDispenseStep("error")
+    );
+  };
+
+  const handleRedeem = async (event) => {
     event.preventDefault();
-    setFeedback("");
     setError("");
 
-    if (!currentUser) {
-      return;
-    }
+    if (!currentUser) return;
 
     const result = actions.redeemRice(currentUser.id, kgToRedeem);
     if (!result.ok) {
@@ -30,11 +70,37 @@ export default function UserRedeemPage() {
       return;
     }
 
-    setFeedback(`Redemption completed. You received ${result.riceKg} kg rice.`);
+    setDispensedKg(result.riceKg);
+
+    // Trigger the hardware rice dispenser
+    if (selectedBinId && realtimeDb) {
+      setDispenseStep("dispensing");
+      const cmdResult = await writeRiceCommand(
+        selectedBinId,
+        currentUser.id,
+        currentUser.name,
+        result.riceKg
+      );
+      if (cmdResult.ok) {
+        subscribeToRiceCommand(selectedBinId);
+      } else {
+        setDispenseStep("error");
+      }
+    } else {
+      // No bin / no Firebase — still record redemption, just no hardware trigger
+      setDispenseStep("done");
+    }
+  };
+
+  const handleReset = () => {
+    setDispenseStep("idle");
+    setDispensedKg(0);
+    setError("");
   };
 
   return (
     <div className="stack">
+      {/* ── Balance summary ─────────────────────────────────────────────── */}
       <section className="card">
         <h2 className="card-title">Redeem kg for Rice</h2>
         <p className="muted-text">
@@ -56,27 +122,93 @@ export default function UserRedeemPage() {
         </div>
       </section>
 
+      {/* ── Redeem form / status ─────────────────────────────────────────── */}
       <section className="card">
-        <form className="stack" onSubmit={handleRedeem}>
-          <label>
-            kg to redeem
-            <input
-              className="input-field"
-              type="number"
-              min="0.001"
-              step="0.001"
-              value={kgToRedeem}
-              onChange={(event) =>
-                setKgToRedeem(Math.max(0.001, Number(event.target.value)))
-              }
-            />
-          </label>
-          <button type="submit" className="btn-primary">
-            Redeem Now
-          </button>
-          {feedback ? <p className="success-text">{feedback}</p> : null}
-          {error ? <p className="error-text">{error}</p> : null}
-        </form>
+        {dispenseStep === "idle" && (
+          <form className="stack" onSubmit={handleRedeem}>
+            <label>
+              Dispenser bin
+              <select
+                className="input-field"
+                value={selectedBinId}
+                onChange={(e) => setSelectedBinId(e.target.value)}
+              >
+                {availableBins.length === 0 && (
+                  <option value="">No bins registered</option>
+                )}
+                {availableBins.length > 0 && !selectedBinId && (
+                  <option value="">Select bin…</option>
+                )}
+                {availableBins.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              kg to redeem
+              <input
+                className="input-field"
+                type="number"
+                min="0.001"
+                step="0.001"
+                value={kgToRedeem}
+                onChange={(e) =>
+                  setKgToRedeem(Math.max(0.001, Number(e.target.value)))
+                }
+              />
+            </label>
+
+            <button type="submit" className="btn-primary">
+              Redeem Now
+            </button>
+
+            {error ? <p className="error-text">{error}</p> : null}
+          </form>
+        )}
+
+        {dispenseStep === "dispensing" && (
+          <div className="stack">
+            <p className="success-text">
+              Redemption recorded!{" "}
+              <strong>{dispensedKg.toFixed(3)} kg</strong> of rice is being
+              dispensed by <strong>{selectedBinId}</strong>.
+            </p>
+            <p className="muted-text">
+              Please wait — the dispenser is opening now…
+            </p>
+          </div>
+        )}
+
+        {dispenseStep === "done" && (
+          <div className="stack">
+            <p className="success-text">
+              Done! You received{" "}
+              <strong>{dispensedKg.toFixed(3)} kg</strong> of rice.
+            </p>
+            <button type="button" className="btn-primary" onClick={handleReset}>
+              Redeem More
+            </button>
+          </div>
+        )}
+
+        {dispenseStep === "error" && (
+          <div className="stack">
+            <p className="success-text">
+              Redemption recorded — <strong>{dispensedKg.toFixed(3)} kg</strong>{" "}
+              deducted from your balance.
+            </p>
+            <p className="error-text">
+              Could not reach the rice dispenser. Please collect your rice
+              manually from the bin.
+            </p>
+            <button type="button" className="btn-primary" onClick={handleReset}>
+              Done
+            </button>
+          </div>
+        )}
       </section>
     </div>
   );

@@ -1,20 +1,28 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { deleteDoc, doc, getDoc, setDoc } from "firebase/firestore";
+import { createContext, useContext, useEffect, useState } from "react";
 import { dataStore } from "../services/localStore";
-import {
-  ensureFirebaseSession,
-  firebaseAuth,
-  firestoreDb,
-  isFirebaseConfigured,
-} from "../services/firebaseClient";
 
 const AuthContext = createContext(null);
-const SESSIONS_COLLECTION = "sessions";
+const SESSION_KEY = "pbtr_active_user";
+
+function readSavedUserId() {
+  try {
+    return localStorage.getItem(SESSION_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function persistActiveSession(userId) {
+  try {
+    localStorage.setItem(SESSION_KEY, userId);
+  } catch {}
+}
+
+function clearActiveSession() {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {}
+}
 
 export function AuthProvider({ children }) {
   const [activeUserId, setActiveUserId] = useState("");
@@ -22,6 +30,7 @@ export function AuthProvider({ children }) {
   const [sessionReady, setSessionReady] = useState(false);
   const [resolvingUser, setResolvingUser] = useState(false);
 
+  // Subscribe to dataStore so currentUser stays in sync with remote changes
   useEffect(() => {
     const unsubscribe = dataStore.subscribe((snapshot) => {
       if (!activeUserId) {
@@ -46,93 +55,32 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, [activeUserId]);
 
+  // Restore session from localStorage on mount (synchronous read — no async race)
   useEffect(() => {
-    let mounted = true;
-
-    const restoreSession = async () => {
-      try {
-        if (!isFirebaseConfigured || !firestoreDb || !firebaseAuth) {
-          return;
-        }
-
-        const ready = await ensureFirebaseSession();
-        if (!ready || !firebaseAuth.currentUser) {
-          return;
-        }
-
-        const sessionRef = doc(
-          firestoreDb,
-          SESSIONS_COLLECTION,
-          firebaseAuth.currentUser.uid
-        );
-        const snapshot = await getDoc(sessionRef);
-        if (!mounted || !snapshot.exists()) {
-          return;
-        }
-
-        const restoredUserId = String(snapshot.data()?.activeUserId || "");
-        if (restoredUserId) {
-          setResolvingUser(true);
-          setActiveUserId(restoredUserId);
-        }
-      } finally {
-        if (mounted) {
-          setSessionReady(true);
-        }
-      }
-    };
-
-    restoreSession();
-    return () => {
-      mounted = false;
-    };
+    const savedId = readSavedUserId();
+    if (savedId) {
+      setActiveUserId(savedId);
+      setResolvingUser(true);
+    }
+    setSessionReady(true);
   }, []);
 
+  // Fallback: if the user ID from localStorage no longer resolves to a known
+  // user within 5 s (e.g. user was deleted), clear the stale session.
   useEffect(() => {
     if (!sessionReady || !activeUserId || currentUser || !resolvingUser) {
       return undefined;
     }
 
     const timeoutId = window.setTimeout(() => {
+      clearActiveSession();
       setActiveUserId("");
       setCurrentUser(null);
       setResolvingUser(false);
-      clearActiveSession().catch(() => {});
     }, 5000);
 
     return () => window.clearTimeout(timeoutId);
   }, [sessionReady, activeUserId, currentUser, resolvingUser]);
-
-  const persistActiveSession = async (userId) => {
-    if (!isFirebaseConfigured || !firestoreDb || !firebaseAuth) {
-      return;
-    }
-    const ready = await ensureFirebaseSession();
-    if (!ready || !firebaseAuth.currentUser) {
-      return;
-    }
-
-    await setDoc(
-      doc(firestoreDb, SESSIONS_COLLECTION, firebaseAuth.currentUser.uid),
-      {
-        activeUserId: userId,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
-  };
-
-  const clearActiveSession = async () => {
-    if (!isFirebaseConfigured || !firestoreDb || !firebaseAuth) {
-      return;
-    }
-    const ready = await ensureFirebaseSession();
-    if (!ready || !firebaseAuth.currentUser) {
-      return;
-    }
-
-    await deleteDoc(doc(firestoreDb, SESSIONS_COLLECTION, firebaseAuth.currentUser.uid));
-  };
 
   const login = ({ email, password }) => {
     const result = dataStore.login(email, password);
@@ -140,33 +88,33 @@ export function AuthProvider({ children }) {
       return result;
     }
 
-    setResolvingUser(true);
+    persistActiveSession(result.user.id);
     setActiveUserId(result.user.id);
     setCurrentUser(result.user);
     setResolvingUser(false);
-    persistActiveSession(result.user.id).catch(() => {});
 
-    return {
-      ok: true,
-      user: result.user,
-    };
+    return { ok: true, user: result.user };
   };
 
   const logout = () => {
+    clearActiveSession();
     setActiveUserId("");
     setCurrentUser(null);
     setResolvingUser(false);
-    clearActiveSession().catch(() => {});
   };
 
   const value = {
     currentUser,
-    loading: !sessionReady || (Boolean(activeUserId) && resolvingUser && !currentUser),
+    loading:
+      !sessionReady ||
+      (Boolean(activeUserId) && resolvingUser && !currentUser),
     login,
     logout,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

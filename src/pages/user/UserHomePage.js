@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
-import { doc, onSnapshot } from "firebase/firestore";
-import { firestoreDb } from "../../services/firebaseClient";
+import { onValue, ref } from "firebase/database";
+import { realtimeDb } from "../../services/firebaseClient";
 import { cancelBinCommand, writeBinCommand } from "../../services/cloudSync";
 
 const formatDateTime = (timestamp) =>
@@ -75,13 +75,13 @@ export default function UserHomePage() {
   }, []);
 
   const subscribeToCommand = (binId) => {
-    if (!firestoreDb || !binId) return;
+    if (!realtimeDb || !binId) return;
     if (unsubscribeRef.current) unsubscribeRef.current();
-    unsubscribeRef.current = onSnapshot(
-      doc(firestoreDb, "bin_commands", binId),
+    unsubscribeRef.current = onValue(
+      ref(realtimeDb, `bin_commands/${binId}`),
       (snap) => {
         if (!snap.exists()) return;
-        const { status, weightKg } = snap.data();
+        const { status, weightKg } = snap.val();
         if (status === "active") {
           setInsertStep("active");
         } else if (status === "done") {
@@ -97,7 +97,7 @@ export default function UserHomePage() {
       },
       () => {
         setInsertStep("error");
-        setInsertError("Lost connection to Firestore.");
+        setInsertError("Lost connection to Firebase.");
       }
     );
   };
@@ -216,13 +216,13 @@ export default function UserHomePage() {
                 {availableBins.map((id) => <option key={id} value={id}>{id}</option>)}
               </select>
             </div>
-            <button type="button" className="btn-insert-main" onClick={handleInsertBottle} disabled={!selectedBinId || !firestoreDb}>
+            <button type="button" className="btn-insert-main" onClick={handleInsertBottle} disabled={!selectedBinId || !realtimeDb}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
                 <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
               </svg>
               Insert Bottle
             </button>
-            {!firestoreDb && <p className="error-text" style={{fontSize: "0.85rem"}}>Firebase not configured — hardware connection unavailable.</p>}
+            {!realtimeDb && <p className="error-text" style={{fontSize: "0.85rem"}}>Firebase not configured — hardware connection unavailable.</p>}
           </div>
         )}
 

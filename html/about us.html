@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>About Us | EcoRice - A Greener Tomorrow</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .text-shadow-sm {
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#4a6549",
+                    "surface-container-highest": "#e5e2db",
+                    "surface-container": "#f1eee7",
+                    "primary-fixed": "#bcf0ae",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#fcf9f2",
+                    "on-primary-fixed-variant": "#23501e",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-on-surface": "#f3f0e9",
+                    "secondary-fixed-dim": "#b0cfad",
+                    "on-secondary-fixed": "#07200b",
+                    "on-error-container": "#93000a",
+                    "surface-container-high": "#ebe8e1",
+                    "on-error": "#ffffff",
+                    "primary-container": "#2d5a27",
+                    "on-tertiary-fixed": "#311300",
+                    "on-secondary-fixed-variant": "#334d33",
+                    "error-container": "#ffdad6",
+                    "on-background": "#1c1c18",
+                    "on-primary-fixed": "#002201",
+                    "outline-variant": "#c2c9bb",
+                    "on-surface": "#1c1c18",
+                    "primary": "#154212",
+                    "on-secondary-container": "#506b4f",
+                    "on-tertiary": "#ffffff",
+                    "surface-tint": "#3b6934",
+                    "inverse-primary": "#a1d494",
+                    "tertiary-fixed": "#ffdcc7",
+                    "on-tertiary-fixed-variant": "#713704",
+                    "on-surface-variant": "#42493e",
+                    "background": "#fcf9f2",
+                    "surface-container-low": "#f6f3ec",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#5e2b00",
+                    "surface-variant": "#e5e2db",
+                    "tertiary-fixed-dim": "#ffb787",
+                    "surface-dim": "#dcdad3",
+                    "on-primary-container": "#9dd090",
+                    "outline": "#72796e",
+                    "tertiary-container": "#7d400e",
+                    "secondary-fixed": "#ccebc7",
+                    "primary-fixed-dim": "#a1d494",
+                    "inverse-surface": "#31312c",
+                    "surface": "#fcf9f2",
+                    "on-tertiary-container": "#ffb27e",
+                    "secondary-container": "#ccebc7",
+                    "on-primary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "24px",
+                    "gutter": "24px",
+                    "xs": "4px",
+                    "xl": "80px",
+                    "container-max": "1200px",
+                    "lg": "48px",
+                    "base": "8px",
+                    "sm": "12px"
+            },
+            "fontFamily": {
+                    "label-md": ["Inter"],
+                    "headline-md": ["Montserrat"],
+                    "headline-lg": ["Montserrat"],
+                    "body-lg": ["Inter"],
+                    "headline-lg-mobile": ["Montserrat"],
+                    "caption": ["Inter"],
+                    "headline-xl": ["Montserrat"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                    "caption": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body-md selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopNavBar -->
+<nav class="w-full top-0 sticky z-50 bg-surface/80 backdrop-blur-md shadow-sm">
+<div class="flex justify-between items-center px-gutter py-4 max-w-container-max mx-auto">
+<div class="font-headline-md text-headline-md font-bold text-primary">EcoRice</div>
+<div class="hidden md:flex items-center gap-lg">
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors active:scale-95 duration-150" href="#">Home</a>
+<a class="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-colors active:scale-95 duration-150" href="#">Rewards</a>
+<a class="font-body-md text-body-md text-primary font-bold border-b-2 border-primary pb-1 active:scale-95 duration-150" href="#">About Us</a>
+</div>
+<button class="bg-primary text-on-primary px-lg py-2 rounded-full font-label-md hover:opacity-90 transition-all active:scale-95">Login</button>
+</div>
+</nav>
+<!-- Hero Section -->
+<header class="relative h-[614px] flex items-center justify-center overflow-hidden">
+<div class="absolute inset-0 bg-cover bg-center" data-alt="A vast, sun-drenched emerald green rice terrace landscape stretching across rolling hills under a soft morning mist. The lighting is ethereal and warm, emphasizing the lush textures of the agricultural land. The visual style is clean, modern, and high-resolution, evoking a sense of environmental harmony and peaceful sustainability consistent with a premium eco-conscious brand." style="background-image: url('https://lh3.googleusercontent.com/aida/AP1WRLvBK-wN9OTq9O_M4ud3h9wM15F1a3UgHp_6j7XrRdDq64JmdJpBt4oCxcqPm0Ezb9tvN0tUA6k_-SefgNYSNMvJyf0vr-e4dZe4oUZl4icbe07FYyvwu44zk0COIepu0H5VeLBsHI1YqmW7GcJpajZG8Y77p2WDftwMy9x62Thzt0g9tS9JMZveKLVzUq4s8jRtNUx0uRh_xK0yDl2NtSc2hqboyDFtAh1mGf6QGQ1re-slo5OEX9YhV0g')">
+<div class="absolute inset-0 bg-primary/20 backdrop-brightness-75"></div>
+</div>
+<div class="relative z-10 text-center px-gutter max-w-4xl">
+<h1 class="font-headline-xl text-headline-xl text-white mb-md drop-shadow-lg">Cultivating Change, One Grain at a Time.</h1>
+<p class="font-body-lg text-body-lg text-white/90 max-w-2xl mx-auto leading-relaxed">EcoRice bridges the gap between environmental responsibility and social welfare through innovative circular economy solutions.</p>
+</div>
+</header>
+<!-- Mission & Vision - Asymmetric Layout -->
+<section class="py-xl max-w-container-max mx-auto px-gutter grid grid-cols-1 md:grid-cols-12 gap-lg items-center">
+<div class="md:col-span-7 space-y-md">
+<span class="inline-block px-4 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-md">Our Purpose</span>
+<h2 class="font-headline-lg text-headline-lg text-primary">A Mission to Restore &amp; Nourish</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+                At EcoRice, we believe that the solution to plastic pollution shouldn't be a burden, but a bridge to community resilience. Our mission is to transform discarded plastic into a currency for nutrition, creating a self-sustaining cycle that benefits both the planet and its people.
+            </p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-md pt-md">
+<div class="p-md bg-surface-container-low rounded-xl border-l-4 border-primary">
+<h3 class="font-headline-md text-headline-md text-primary mb-xs">Vision</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">A world where plastic waste is a relic of the past and food security is a universal reality for every community.</p>
+</div>
+<div class="p-md bg-surface-container-low rounded-xl border-l-4 border-tertiary">
+<h3 class="font-headline-md text-headline-md text-tertiary mb-xs">Commitment</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">We pledge transparency in our impact reporting and 100% ethical sourcing for all our rice distribution programs.</p>
+</div>
+</div>
+</div>
+<div class="md:col-span-5">
+<div class="relative rounded-2xl overflow-hidden shadow-xl aspect-square">
+<img class="w-full h-full object-cover" data-alt="A close-up shot of a diverse group of community members hands together, holding fresh, organic rice grains in a symbolic gesture of unity and nourishment. The lighting is warm and natural, highlighting the tactile texture of the rice and the soft skin tones. The background is a soft-focus verdant green field, aligning with the brand's altruistic and human-centric environmental identity." src="https://lh3.googleusercontent.com/aida/AP1WRLsNzlBoO3sOLbJepBsKECWAPi7qFRB-rQuzrZxVG-_3rGtNBdWe4bHLEJ-CBEfYPSwmnffsRIDGR3mXRYcKNthi_g8KqDoczPGkQD7l09mC5wW2W6JwwpFGew8RtfJW9D7FqLDDxuDZizadVc-EU2T5mM7SSK8ff-gGx67ANgcxAbHk6UzHZu67XST4cTGhEjBH_qZGiihdXeKWJ7ARR3wCIr-u3xdLFDL_5r1kNQfa0e8kbRpqPzkO8Q"/>
+<div class="absolute bottom-4 left-4 right-4 glass-card p-4 rounded-xl">
+<p class="font-label-md text-primary-container italic text-center">"Every kilogram of plastic collected provides 20 healthy meals."</p>
+</div>
+</div>
+</div>
+</section>
+<!-- History Timeline - Bento Style -->
+<section class="py-xl bg-surface-container-lowest">
+<div class="max-w-container-max mx-auto px-gutter">
+<div class="text-center mb-xl">
+<h2 class="font-headline-lg text-headline-lg text-primary">Our Journey Since 2022</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-sm">From a small local pilot to a national movement.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-md">
+<!-- Bento Block 1: The Spark -->
+<div class="md:col-span-2 p-lg bg-primary-container text-on-primary-container rounded-2xl flex flex-col justify-between">
+<div>
+<span class="text-on-primary-container/70 font-label-md">2022</span>
+<h3 class="font-headline-md text-headline-md mt-sm">The Spark of an Idea</h3>
+<p class="font-body-md mt-md opacity-90">EcoRice was founded in response to the dual crisis of plastic-clogged waterways and rising food costs in coastal regions. We started with a single collection point and a ton of hope.</p>
+</div>
+<div class="mt-lg">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">eco</span>
+</div>
+</div>
+<!-- Bento Block 2: Small Card -->
+<div class="p-lg bg-surface-container-high rounded-2xl">
+<span class="text-secondary font-label-md">2023 Q1</span>
+<h3 class="font-headline-md text-headline-md text-primary mt-sm">Scale Up</h3>
+<p class="font-body-md text-on-surface-variant mt-md">Partnered with 50 local farmers to source regenerative rice.</p>
+</div>
+<!-- Bento Block 3: Small Card -->
+<div class="p-lg bg-secondary text-on-secondary rounded-2xl">
+<span class="opacity-70 font-label-md">2023 Q3</span>
+<h3 class="font-headline-md text-headline-md mt-sm">Milestone</h3>
+<p class="font-body-md mt-md opacity-90">10,000kg of plastic diverted from oceans in just six months.</p>
+</div>
+<!-- Bento Block 4: Feature Card -->
+<div class="md:col-span-2 h-64 relative rounded-2xl overflow-hidden shadow-lg group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A clean, organized waste sorting facility where colorful plastic bottles are being processed for recycling. The space is bright and modern, showing the high-tech side of sustainability. The color palette features whites and secondary greens, conveying efficiency and professional environmental management in a crisp light-mode aesthetic." src="https://lh3.googleusercontent.com/aida/AP1WRLvaToRrOVO7nhomwZcY-do28P9mRpPJ4zJglTcc-QNoM4Iq4-BvVPEMJ9gjszQf3vpxHMlNyLie8uN1NyrjI1t9zbYFwcSmTfEJdVHbpuJBr-sZyGDL3cswPbRwmnQ59CwScKYL2fM9OjrMTwuxN2F7YeBK4-H-J4dxZ5XsYKt_clCmwG6vSHRqv0oYlNdAVGfjZ-rp-faewHSKug61z8xDWg6ya2eQeJ_PGr32CXSgwHazv48SJ9eah8E"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent flex flex-col justify-end p-lg text-white">
+<span class="font-label-md opacity-80 text-shadow-sm">2024</span>
+<h3 class="font-headline-md text-headline-md text-shadow-sm">Nationwide Network</h3>
+<p class="font-body-md opacity-90 text-shadow-sm">Connecting major urban centers with sustainable agricultural hubs.</p>
+</div>
+</div>
+<!-- Bento Block 5: Large Stat -->
+<div class="md:col-span-2 p-lg bg-tertiary-fixed text-on-tertiary-fixed rounded-2xl flex items-center justify-between">
+<div class="max-w-[60%]">
+<h3 class="font-headline-lg text-headline-lg">Impact Dashboard</h3>
+<p class="font-body-md mt-sm">We've reached over 5,000 families across 12 provinces.</p>
+</div>
+<div class="text-right">
+<div class="text-headline-xl font-bold">5K+</div>
+<div class="font-label-md opacity-70">FAMILIES FED</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Partners Section - Modern Logo Grid -->
+<section class="py-xl max-w-container-max mx-auto px-gutter">
+<div class="flex flex-col md:flex-row items-end justify-between mb-lg gap-md">
+<div class="max-w-xl">
+<span class="font-label-md text-secondary">Our Network</span>
+<h2 class="font-headline-lg text-headline-lg text-primary mt-xs">Powered by Collaboration</h2>
+<p class="font-body-md text-on-surface-variant mt-sm">We work with industry leaders and grassroots organizations to amplify our reach and ensure long-term sustainability.</p>
+</div>
+<a class="group flex items-center gap-xs font-label-md text-primary hover:translate-x-1 transition-transform" href="#">
+                View Impact Report
+                <span class="material-symbols-outlined">arrow_forward</span>
+</a>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-md">
+<!-- Partner Cards -->
+<div class="glass-card h-32 flex items-center justify-center rounded-xl grayscale hover:grayscale-0 transition-all duration-300">
+<span class="font-headline-md text-outline">GREENCO</span>
+</div>
+<div class="glass-card h-32 flex items-center justify-center rounded-xl grayscale hover:grayscale-0 transition-all duration-300">
+<span class="font-headline-md text-outline">AGRILIFE</span>
+</div>
+<div class="glass-card h-32 flex items-center justify-center rounded-xl grayscale hover:grayscale-0 transition-all duration-300">
+<span class="font-headline-md text-outline">OCEANFIX</span>
+</div>
+<div class="glass-card h-32 flex items-center justify-center rounded-xl grayscale hover:grayscale-0 transition-all duration-300">
+<span class="font-headline-md text-outline">RE-BOTTLE</span>
+</div>
+<div class="glass-card h-32 flex items-center justify-center rounded-xl grayscale hover:grayscale-0 transition-all duration-300">
+<span class="font-headline-md text-outline">FOODCORE</span>
+</div>
+</div>
+</section>
+<!-- Team Section - Rounded Profiles -->
+<section class="py-xl bg-surface-container-low">
+<div class="max-w-container-max mx-auto px-gutter">
+<div class="text-center mb-xl">
+<h2 class="font-headline-lg text-headline-lg text-primary">Meet the Visionaries</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-sm">A diverse team committed to radical environmental transparency.</p>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-lg">
+<!-- Team Member 1 -->
+<div class="text-center group">
+<div class="w-48 h-48 mx-auto rounded-full overflow-hidden mb-md border-4 border-white shadow-md transition-transform group-hover:scale-105">
+<img class="w-full h-full object-cover" data-alt="Portrait of a professional woman with a warm, confident expression, representing leadership in a sustainable enterprise. The setting is a bright, modern office with soft greenery in the background. The lighting is flattering and natural, conveying reliability and vision in a high-end minimalist corporate style." src="https://lh3.googleusercontent.com/aida/AP1WRLvz1tRQv1tSWJe88rNtExjSR14qoJNF1fG2Qx5C7FNK8gkCwm4FKGcCPzF7kCMgFJUQPHSwLqCCZ41013fn2eiHkdnOa_8leixfHRh0qW1leWZ5ICp6sMeLAG9mB2YXqVm8h758aNg2_84oBPn-fhPh5VZU8nL-tXbPCNK8DOcFUuA3-djDNkM-lYP3vPHZmdLnn8U4Gep_maNeg-WShI-BQjnOhlJSrWP5utpS830NCFRI6C4Bz_rBGtU"/>
+</div>
+<h4 class="font-headline-md text-headline-md text-primary">Elena Rivera</h4>
+<p class="font-label-md text-secondary">Founder &amp; CEO</p>
+</div>
+<!-- Team Member 2 -->
+<div class="text-center group">
+<div class="w-48 h-48 mx-auto rounded-full overflow-hidden mb-md border-4 border-white shadow-md transition-transform group-hover:scale-105">
+<img class="w-full h-full object-cover" data-alt="Portrait of a male professional looking thoughtfully into the distance, suggesting strategic planning and environmental expertise. The background is a clean, minimalist space with soft wooden accents. The lighting is soft and professional, emphasizing a modern and approachable leader in the sustainable tech space." src="https://lh3.googleusercontent.com/aida/AP1WRLsomRv_jDAJVJjGqE98huuv0_cqp67u-KAKEGg8oNXbUpU_KVkJNeYkdas1Rnkw-YA8CYdEJmLnUtS2SNf2Vj4tZ8BnoIXxCbDG2Ju-FdNJ7pT5W1Vfk_VA_Z31m3MtV2ERWfq5BDG-yBJbeh_JmiQ-shvXxE5xbVZ_Lzu_oSWvpVV5pQtBDo9zF21yCT5s9ae-cvgQSNEhIVm01tp3ed6mYPaDvcJpGdJjzwGA6muJAjlkmtMJ2mEuPx0"/>
+</div>
+<h4 class="font-headline-md text-headline-md text-primary">Dr. Marcus Chen</h4>
+<p class="font-label-md text-secondary">Chief Sustainability Officer</p>
+</div>
+<!-- Team Member 3 -->
+<div class="text-center group">
+<div class="w-48 h-48 mx-auto rounded-full overflow-hidden mb-md border-4 border-white shadow-md transition-transform group-hover:scale-105">
+<img class="w-full h-full object-cover" data-alt="Portrait of a young, energetic female community leader smiling brightly. The lighting is warm and sunlit, suggesting outdoor community impact work. The background shows a soft-focus garden or park, reinforcing the brand's connection to nature and social wellbeing." src="https://lh3.googleusercontent.com/aida/AP1WRLvxR9x4rglk8rIXJvlv8790Qi_FORiYpwd_r639_HyS8QtUG8i497wuh7GX53LTLbx3AiTGLlMJOxSETzqsv0lBwJyEegPy47Rq3VYuKfP3KYcdASdD49TBOctd6r7-BGfF_or4rP6CGSmLyeBwUnz5VB4SeJ3EU2Dh0pFwTOiGgZk27KLnzPQ1EisxTwncm9i-AOLgQl3XDf3eGi9oemr9aiAz7CYzOPfMCwLrIy8aKDXNxx7C0RwnlDE"/>
+</div>
+<h4 class="font-headline-md text-headline-md text-primary">Sarah Jameel</h4>
+<p class="font-label-md text-secondary">Head of Community Outreach</p>
+</div>
+<!-- Team Member 4 -->
+<div class="text-center group">
+<div class="w-48 h-48 mx-auto rounded-full overflow-hidden mb-md border-4 border-white shadow-md transition-transform group-hover:scale-105">
+<img class="w-full h-full object-cover" data-alt="Portrait of a professional man in a casual yet smart eco-conscious attire, representing technical innovation. The lighting is crisp and clear, against a neutral light grey background that reflects a minimalist and grounded aesthetic. He appears knowledgeable and friendly, embodying the brand's reliable personality." src="https://lh3.googleusercontent.com/aida/AP1WRLtUnOevyv_f4O91oCCpQFmeTuaaEYNGz4xDgEOL7B_lysZQy9BaPtaqWP2fJf3ikdxBNDH_k68cB5sTDx0Epw9ieTXtlT1VAhfGRploYkridVkHLBXwHVU6C9L7JFtb3wa5c5PvyiB5HAwE6K1dagSI2bNL_rLNURfCXFUrPZONEPfIyFEma_ZOT84ZTUJgU9l2VJpAkotSVtV9Rqz4m38TzsveoeQM3mjAXhx7x2hEwWar-WkhZ_9JUA"/>
+</div>
+<h4 class="font-headline-md text-headline-md text-primary">Julian Thorne</h4>
+<p class="font-label-md text-secondary">Lead Logistics Architect</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="w-full mt-xl bg-surface-container text-secondary">
+<div class="flex flex-col md:flex-row justify-between items-center px-gutter py-lg max-w-container-max mx-auto">
+<div class="mb-md md:mb-0">
+<span class="font-headline-sm text-headline-sm font-bold text-primary">EcoRice</span>
+<p class="font-caption text-caption text-on-surface-variant mt-xs">© 2024 EcoRice. For a Greener Tomorrow.</p>
+</div>
+<div class="flex flex-wrap justify-center gap-md">
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Sustainability Report</a>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Community Impact</a>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Privacy Policy</a>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Terms of Service</a>
+</div>
+</div>
+</footer>
+<!-- Interactive Micro-interactions -->
+<script>
+        document.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                if(!el.classList.contains('active')) {
+                    el.style.transform = 'translateY(-1px)';
+                }
+            });
+            el.addEventListener('mouseleave', () => {
+                el.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100', 'translate-y-0');
+                    entry.target.classList.remove('opacity-0', 'translate-y-8');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('section').forEach(section => {
+            section.classList.add('transition-all', 'duration-1000', 'opacity-0', 'translate-y-8');
+            observer.observe(section);
+        });
+    </script>
+</body></html>

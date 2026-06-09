@@ -33,6 +33,14 @@ export default function LoginPage() {
       {/* ── Left: Form Panel ── */}
       <div className="sb-login-left">
         <div className="sb-login-left-inner">
+          <button
+            type="button"
+            className="sb-back-btn"
+            onClick={() => navigate("/")}
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+            Back to Home
+          </button>
 
           {/* Logo */}
           <div className="sb-logo-wrap">

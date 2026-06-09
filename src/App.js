@@ -3,11 +3,15 @@ import { AuthProvider, useAuth } from "./app/AuthContext";
 import { DataProvider } from "./app/DataContext";
 import ProtectedRoute from "./app/ProtectedRoute";
 import AppLayout from "./components/Layout";
+import "./App.css";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminLogsPage from "./pages/admin/AdminLogsPage";
 import AdminStoragePage from "./pages/admin/AdminStoragePage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AboutUsPage from "./pages/AboutUsPage";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import RewardsPage from "./pages/RewardsPage";
 import UserHistoryPage from "./pages/user/UserHistoryPage";
 import UserHomePage from "./pages/user/UserHomePage";
 import UserRedeemPage from "./pages/user/UserRedeemPage";
@@ -42,18 +46,17 @@ function LoginRoute() {
 function AppRoutes() {
   const { currentUser, loading } = useAuth();
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
-
   const defaultRoute = currentUser
     ? currentUser.role === "admin"
       ? "/admin/dashboard"
       : "/user/home"
-    : "/login";
+    : "/";
 
   return (
     <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/rewards" element={<RewardsPage />} />
+      <Route path="/about-us" element={<AboutUsPage />} />
       <Route path="/login" element={<LoginRoute />} />
 
       <Route
@@ -128,7 +131,10 @@ function AppRoutes() {
         }
       />
 
-      <Route path="*" element={<Navigate to={defaultRoute} replace />} />
+      <Route
+        path="*"
+        element={loading ? <LoadingScreen /> : <Navigate to={defaultRoute} replace />}
+      />
     </Routes>
   );
 }

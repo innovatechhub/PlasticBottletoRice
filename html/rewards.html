@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EcoRice | Rewards &amp; Impact</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary": "#4a6549",
+                      "surface-container-highest": "#e5e2db",
+                      "surface-container": "#f1eee7",
+                      "primary-fixed": "#bcf0ae",
+                      "error": "#ba1a1a",
+                      "surface-bright": "#fcf9f2",
+                      "on-primary-fixed-variant": "#23501e",
+                      "surface-container-lowest": "#ffffff",
+                      "inverse-on-surface": "#f3f0e9",
+                      "secondary-fixed-dim": "#b0cfad",
+                      "on-secondary-fixed": "#07200b",
+                      "on-error-container": "#93000a",
+                      "surface-container-high": "#ebe8e1",
+                      "on-error": "#ffffff",
+                      "primary-container": "#2d5a27",
+                      "on-tertiary-fixed": "#311300",
+                      "on-secondary-fixed-variant": "#334d33",
+                      "error-container": "#ffdad6",
+                      "on-background": "#1c1c18",
+                      "on-primary-fixed": "#002201",
+                      "outline-variant": "#c2c9bb",
+                      "on-surface": "#1c1c18",
+                      "primary": "#154212",
+                      "on-secondary-container": "#506b4f",
+                      "on-tertiary": "#ffffff",
+                      "surface-tint": "#3b6934",
+                      "inverse-primary": "#a1d494",
+                      "tertiary-fixed": "#ffdcc7",
+                      "on-tertiary-fixed-variant": "#713704",
+                      "on-surface-variant": "#42493e",
+                      "background": "#fcf9f2",
+                      "surface-container-low": "#f6f3ec",
+                      "on-secondary": "#ffffff",
+                      "tertiary": "#5e2b00",
+                      "surface-variant": "#e5e2db",
+                      "tertiary-fixed-dim": "#ffb787",
+                      "surface-dim": "#dcdad3",
+                      "on-primary-container": "#9dd090",
+                      "outline": "#72796e",
+                      "tertiary-container": "#7d400e",
+                      "secondary-fixed": "#ccebc7",
+                      "primary-fixed-dim": "#a1d494",
+                      "inverse-surface": "#31312c",
+                      "surface": "#fcf9f2",
+                      "on-tertiary-container": "#ffb27e",
+                      "secondary-container": "#ccebc7",
+                      "on-primary": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "md": "24px",
+                      "gutter": "24px",
+                      "xs": "4px",
+                      "xl": "80px",
+                      "container-max": "1200px",
+                      "lg": "48px",
+                      "base": "8px",
+                      "sm": "12px"
+              },
+              "fontFamily": {
+                      "label-md": ["Inter"],
+                      "headline-md": ["Montserrat"],
+                      "headline-lg": ["Montserrat"],
+                      "body-lg": ["Inter"],
+                      "headline-lg-mobile": ["Montserrat"],
+                      "caption": ["Inter"],
+                      "headline-xl": ["Montserrat"],
+                      "body-md": ["Inter"]
+              },
+              "fontSize": {
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                      "caption": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                      "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .card-shadow {
+            box-shadow: 0px 4px 20px rgba(45, 90, 39, 0.08);
+        }
+        .card-shadow-hover:hover {
+            box-shadow: 0px 8px 30px rgba(45, 90, 39, 0.12);
+            transform: translateY(-2px);
+        }
+        .impact-track {
+            background-color: #e5e2db;
+            height: 12px;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .impact-fill {
+            background-color: #7d400e; /* Tertiary Husk Gold */
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 1s ease-out;
+        }
+        body {
+            background-color: #F4F1EA;
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- TopNavBar -->
+<header class="w-full top-0 sticky z-50 bg-surface shadow-sm">
+<nav class="flex justify-between items-center px-gutter py-4 max-w-container-max mx-auto">
+<div class="font-headline-md text-headline-md font-bold text-primary">EcoRice</div>
+<div class="hidden md:flex items-center gap-lg">
+<a class="font-body-md text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">Home</a>
+<a class="font-body-md text-primary font-bold border-b-2 border-primary pb-1 transition-colors duration-150" href="#">Rewards</a>
+<a class="font-body-md text-on-surface-variant hover:text-primary transition-colors duration-150" href="#">About Us</a>
+</div>
+<button class="bg-primary text-on-primary px-lg py-2 rounded-full font-label-md active:scale-95 duration-150">Login</button>
+</nav>
+</header>
+<main class="max-w-container-max mx-auto px-gutter py-xl">
+<!-- Hero Section -->
+<section class="mb-xl text-center">
+<h1 class="font-headline-xl text-headline-xl text-primary mb-md">Your Impact, Rewarded.</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">
+                Turn your plastic waste into Rice Credits. Support your family, help your community, and heal the planet one kilogram at a time.
+            </p>
+</section>
+<!-- Tier Progress Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-xl">
+<!-- Current Status Card -->
+<div class="md:col-span-2 bg-white p-lg rounded-xl card-shadow flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-md">
+<div>
+<span class="font-label-md text-primary uppercase tracking-wider">Current Tier</span>
+<h2 class="font-headline-lg text-headline-lg text-secondary">Sprout Level</h2>
+</div>
+<div class="bg-secondary-container text-on-secondary-container px-md py-1 rounded-full font-label-md">
+                            1,240 Credits
+                        </div>
+</div>
+<div class="mb-sm">
+<div class="flex justify-between font-label-md text-on-surface-variant mb-xs">
+<span>Progress to Harvest Tier</span>
+<span>75%</span>
+</div>
+<div class="impact-track">
+<div class="impact-fill" style="width: 75%;"></div>
+</div>
+</div>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mt-md italic">
+                    Tip: Collect 260 more credits to unlock Premium Jasmine Rice rewards!
+                </p>
+</div>
+<!-- Tier Breakdown -->
+<div class="bg-surface-container-high p-lg rounded-xl flex flex-col gap-sm">
+<h3 class="font-headline-md text-headline-md text-primary mb-xs">Tiers</h3>
+<div class="flex items-center gap-md p-sm bg-white rounded-lg border border-outline-variant">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">eco</span>
+<div>
+<p class="font-label-md text-on-surface">Seed</p>
+<p class="font-caption text-caption text-on-surface-variant">0 - 500 Credits</p>
+</div>
+</div>
+<div class="flex items-center gap-md p-sm bg-primary-container text-white rounded-lg shadow-md">
+<span class="material-symbols-outlined text-primary-fixed" style="font-variation-settings: 'FILL' 1;">local_florist</span>
+<div>
+<p class="font-label-md">Sprout</p>
+<p class="font-caption text-caption text-primary-fixed">501 - 2,500 Credits</p>
+</div>
+</div>
+<div class="flex items-center gap-md p-sm bg-white rounded-lg border border-outline-variant opacity-60">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">agriculture</span>
+<div>
+<p class="font-label-md text-on-surface">Harvest</p>
+<p class="font-caption text-caption text-on-surface-variant">2,501+ Credits</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Rewards Catalog -->
+<section class="mb-xl">
+<div class="flex items-end justify-between mb-lg">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Rewards Catalog</h2>
+<p class="font-body-md text-on-surface-variant">Redeem your hard-earned credits for essentials or impact.</p>
+</div>
+<button class="text-primary font-label-md flex items-center gap-xs hover:underline">
+                    View All <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
+<!-- Reward Item 1 -->
+<div class="bg-white rounded-xl overflow-hidden card-shadow card-shadow-hover transition-all flex flex-col">
+<div class="h-48 bg-surface-container relative">
+<img alt="Rice bag" class="w-full h-full object-cover" data-alt="A premium 5kg bag of organic white jasmine rice sitting on a rustic wooden table in a brightly lit kitchen. Soft sunlight streams through a nearby window, highlighting the texture of the eco-friendly burlap packaging. The scene is clean, minimal, and conveys high quality and environmental responsibility." src="https://lh3.googleusercontent.com/aida/AP1WRLvHhs0AlBhUoRSpdGOm4zXMKnP8yusCalHlPyjZ-25fg9ccdtQvIIUSAdz2TqRt6ny31TphL4237x-tDmDyjiewjp5ki0KVtJ6yAzbsymukDQ7o85efjX9HE5lqIQRdk-Lk2_Vgxn0g_57wAXeTK0E7yREST_1DjjsE_lKnSC4n9Zedt3zOw0cXzlwoH1vwY6Gp8CMddRoDP0dVf4_IXTJ3i34Q0cIFaabdv8CvGIlYoRPIEFpnFuQpcZw"/>
+<div class="absolute top-sm right-sm bg-tertiary-fixed text-on-tertiary-fixed px-sm py-1 rounded-full text-caption font-label-md">
+                            Best Seller
+                        </div>
+</div>
+<div class="p-lg flex-grow">
+<h4 class="font-headline-md text-on-surface mb-xs">5kg Premium Jasmine Rice</h4>
+<p class="font-body-md text-on-surface-variant mb-md">Sustainably farmed, high-grade jasmine rice for your family kitchen.</p>
+<div class="flex items-center justify-between mt-auto">
+<span class="font-headline-md text-tertiary">450 Credits</span>
+<button class="bg-primary text-on-primary px-md py-2 rounded-lg font-label-md hover:bg-primary-container transition-colors">Redeem</button>
+</div>
+</div>
+</div>
+<!-- Reward Item 2 -->
+<div class="bg-white rounded-xl overflow-hidden card-shadow card-shadow-hover transition-all flex flex-col">
+<div class="h-48 bg-surface-container relative">
+<img alt="Community donation" class="w-full h-full object-cover" data-alt="A heart-warming documentary-style shot of a local community center where volunteers are organizing food donations. Warm, soft indoor lighting creates a hopeful atmosphere. The focus is on a box filled with nutritious staples being handed over, symbolizing social impact and neighborly kindness within a clean, modern aesthetic." src="https://lh3.googleusercontent.com/aida/AP1WRLvd3Yf6zms971A3EfCnUXH0AZwbuFCNCVgPrTuobgBBMUzl51U8kAo8-BilFX2js3uK-OIQM-W1-hCTOlnJCrlp6vMbVRsADsBK8ZYC72NZhNZslXelSNebCuudOkUWXD9xe6FwVqVXNjLjZXJlqkZ9d25z3CuQuDY0FLjFusmxxAZMgqUxG-C5iFBcYzzMgOFMB8Rex0Ss8m_0IOPKcuwU1SNKciWwK2IYhm2U1VZQkrKvA-cVLoi9kA"/>
+<div class="absolute top-sm right-sm bg-secondary-fixed text-on-secondary-fixed px-sm py-1 rounded-full text-caption font-label-md">
+                            Impact Choice
+                        </div>
+</div>
+<div class="p-lg flex-grow">
+<h4 class="font-headline-md text-on-surface mb-xs">Donate to Local School</h4>
+<p class="font-body-md text-on-surface-variant mb-md">Provide 10kg of rice to a local primary school lunch program.</p>
+<div class="flex items-center justify-between mt-auto">
+<span class="font-headline-md text-tertiary">800 Credits</span>
+<button class="bg-secondary text-white px-md py-2 rounded-lg font-label-md hover:opacity-90 transition-colors">Donate</button>
+</div>
+</div>
+</div>
+<!-- Reward Item 3 -->
+<div class="bg-white rounded-xl overflow-hidden card-shadow card-shadow-hover transition-all flex flex-col">
+<div class="h-48 bg-surface-container relative">
+<img alt="Reusable Bag" class="w-full h-full object-cover" data-alt="A stylish, minimalist reusable grocery tote bag made from high-quality recycled canvas, featuring a subtle embroidered eco-leaf logo. The bag is placed against a neutral, off-white background with soft, natural shadows. The photography is clean and high-end, emphasizing the durable and ethical nature of the product." src="https://lh3.googleusercontent.com/aida/AP1WRLsIBLG605L8epOjOlKywwOQQgfB_DEMNbzktrjGZ6wSBp_I7qthu3ER8yso7tovahq0ILnJ4mXcwHMY47NkTacwwsUepHf6HKYK2Zj8eMieIpK7vh-GBv3427EdKSnG4XdSel5T3E2cr3umeZPUfhPRJcMXl7c6V5ZzpXYJ-7irb7mV6K9Ez_UYzwcs9L6J7cHIIuMZ2NE1zb2WkKTUdbYtd-EUNGC1sbnaIUyBccA_uvmwCFXUOVuffwo"/>
+</div>
+<div class="p-lg flex-grow">
+<h4 class="font-headline-md text-on-surface mb-xs">EcoRice Totebag</h4>
+<p class="font-body-md text-on-surface-variant mb-md">Heavy-duty recycled canvas bag for your plastic-free shopping trips.</p>
+<div class="flex items-center justify-between mt-auto">
+<span class="font-headline-md text-tertiary">200 Credits</span>
+<button class="bg-primary text-on-primary px-md py-2 rounded-lg font-label-md hover:bg-primary-container transition-colors">Redeem</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Leaderboard and Impact Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-xl items-start">
+<!-- Leaderboard -->
+<section class="bg-white p-lg rounded-xl card-shadow">
+<h2 class="font-headline-lg text-headline-lg text-primary mb-lg flex items-center gap-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">trophy</span>
+                    Community Heroes
+                </h2>
+<div class="flex flex-col gap-0">
+<div class="flex items-center justify-between py-md border-b border-surface-variant">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-tertiary w-8">1</span>
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center font-bold text-on-primary-fixed">AM</div>
+<div>
+<p class="font-label-md text-on-surface">Anita Mendoza</p>
+<p class="font-caption text-caption text-on-surface-variant">Harvest Tier</p>
+</div>
+</div>
+<span class="font-headline-md text-primary">12.4k</span>
+</div>
+<div class="flex items-center justify-between py-md border-b border-surface-variant">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-secondary w-8">2</span>
+<div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-on-secondary-fixed">RT</div>
+<div>
+<p class="font-label-md text-on-surface">Roberto Tan</p>
+<p class="font-caption text-caption text-on-surface-variant">Harvest Tier</p>
+</div>
+</div>
+<span class="font-headline-md text-primary">11.1k</span>
+</div>
+<div class="flex items-center justify-between py-md border-b border-surface-variant">
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-secondary w-8 opacity-60">3</span>
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center font-bold text-on-surface">SL</div>
+<div>
+<p class="font-label-md text-on-surface">Siti Larasati</p>
+<p class="font-caption text-caption text-on-surface-variant">Sprout Tier</p>
+</div>
+</div>
+<span class="font-headline-md text-primary">9.8k</span>
+</div>
+<!-- Current User's Rank -->
+<div class="flex items-center justify-between py-md px-md bg-surface-container-low rounded-lg mt-md">
+<div class="flex items-center gap-md">
+<span class="font-label-md text-on-surface-variant w-8">142</span>
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center font-bold text-white">ME</div>
+<div>
+<p class="font-label-md text-on-surface">You (EcoWarrior)</p>
+<p class="font-caption text-caption text-on-surface-variant">Sprout Tier</p>
+</div>
+</div>
+<span class="font-headline-md text-primary">1,240</span>
+</div>
+</div>
+</section>
+<!-- How It Works / Data Viz -->
+<section class="flex flex-col gap-lg">
+<div class="bg-primary text-white p-lg rounded-xl card-shadow">
+<h3 class="font-headline-md text-headline-md mb-md">How to Earn</h3>
+<ul class="flex flex-col gap-md">
+<li class="flex gap-md items-start">
+<span class="material-symbols-outlined p-base bg-primary-container rounded-lg">recycling</span>
+<div>
+<p class="font-label-md">PET Plastics (1kg = 50 Credits)</p>
+<p class="font-body-md opacity-80 text-body-md">Clean water bottles and clear soda containers.</p>
+</div>
+</li>
+<li class="flex gap-md items-start">
+<span class="material-symbols-outlined p-base bg-primary-container rounded-lg">shopping_bag</span>
+<div>
+<p class="font-label-md">HDPE Plastics (1kg = 35 Credits)</p>
+<p class="font-body-md opacity-80 text-body-md">Milk jugs, detergent bottles, and shampoo containers.</p>
+</div>
+</li>
+<li class="flex gap-md items-start">
+<span class="material-symbols-outlined p-base bg-primary-container rounded-lg">volunteer_activism</span>
+<div>
+<p class="font-label-md">Community Bonus</p>
+<p class="font-body-md opacity-80 text-body-md">Earn 100 extra credits for participating in weekly cleanup drives.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="bg-tertiary-container text-on-tertiary-container p-lg rounded-xl card-shadow">
+<div class="flex justify-between items-center mb-md">
+<h3 class="font-headline-md text-headline-md">Global Impact</h3>
+<span class="material-symbols-outlined">public</span>
+</div>
+<div class="grid grid-cols-2 gap-lg">
+<div>
+<p class="font-headline-lg text-headline-lg">14.2t</p>
+<p class="font-caption text-caption uppercase tracking-wider opacity-80">Plastic Collected</p>
+</div>
+<div>
+<p class="font-headline-lg text-headline-lg">8,500</p>
+<p class="font-caption text-caption uppercase tracking-wider opacity-80">Families Fed</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full mt-xl bg-surface-container">
+<div class="flex flex-col md:flex-row justify-between items-center px-gutter py-lg max-w-container-max mx-auto">
+<div class="mb-md md:mb-0">
+<div class="font-headline-sm text-headline-sm font-bold text-primary mb-xs">EcoRice</div>
+<p class="font-caption text-caption text-on-surface-variant">© 2024 EcoRice. For a Greener Tomorrow.</p>
+</div>
+<div class="flex flex-wrap justify-center gap-md">
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Sustainability Report</a>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Community Impact</a>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Privacy Policy</a>
+<a class="font-caption text-caption text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100" href="#">Terms of Service</a>
+</div>
+</div>
+</footer>
+<script>
+        // Simple interactivity for progress bar animation
+        document.addEventListener('DOMContentLoaded', () => {
+            const bar = document.querySelector('.impact-fill');
+            if(bar) {
+                const targetWidth = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = targetWidth;
+                }, 300);
+            }
+        });
+    </script>
+</body></html>

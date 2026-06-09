@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import App from "./App";
 
-test("renders unified login page", () => {
+test("renders login page", () => {
   render(<App />);
-  const headingElement = screen.getByText(/Unified Login/i);
+  const headingElement = screen.getByText(/Welcome back!/i);
   expect(headingElement).toBeInTheDocument();
 });

@@ -1,95 +1,163 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
-import { onValue, ref } from "firebase/database";
-import { realtimeDb } from "../../services/firebaseClient";
+import { firestoreDb } from "../../services/firebaseClient";
 import { cancelBinCommand, writeBinCommand } from "../../services/cloudSync";
 
-const formatDateTime = (timestamp) =>
-  new Date(timestamp).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const activeSessionSteps = ["waiting", "active"];
 
-function StatHeroCard({ icon, label, value, subtle, color }) {
+const formatWeight = (grams) => {
+  if (grams >= 1000) {
+    return `${(grams / 1000).toFixed(2)}kg`;
+  }
+  return `${grams.toFixed(2)}g`;
+};
+
+function BottleIcon() {
   return (
-    <div className={`hero-stat-card hero-stat-card--${color}`}>
-      <div className="hero-stat-icon">{icon}</div>
-      <div className="hero-stat-body">
-        <p className="hero-stat-label">{label}</p>
-        <h3 className="hero-stat-value">{value}</h3>
-        {subtle && <p className="hero-stat-subtle">{subtle}</p>}
-      </div>
-    </div>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M10 2h4v3l1.5 1.8V20a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V6.8L10 5V2Z" />
+      <path d="M9 10h6" />
+      <path d="M9 16h6" />
+    </svg>
   );
 }
 
-function StepBadge({ step, label, active, done }) {
+function GiftIcon() {
   return (
-    <div className={`step-badge ${active ? "step-badge--active" : ""} ${done ? "step-badge--done" : ""}`}>
-      <div className="step-num">{done ? "✓" : step}</div>
-      <span>{label}</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 10h16v10H4V10Z" />
+      <path d="M2.8 6h18.4v4H2.8V6Z" />
+      <path d="M12 6v14" />
+      <path d="M12 6C9 6 8 3 9.8 2.4 11 2 12 3.6 12 6Z" />
+      <path d="M12 6c3 0 4-3 2.2-3.6C13 2 12 3.6 12 6Z" />
+    </svg>
+  );
+}
+
+function StatTile({ icon, label, value, note, accent }) {
+  return (
+    <div className="portal-stat-tile">
+      <span className="portal-stat-icon">{icon}</span>
+      <p className="portal-stat-label">{label}</p>
+      <strong className={accent ? "portal-stat-value accent" : "portal-stat-value"}>
+        {value}
+      </strong>
+      <span className="portal-stat-note">{note}</span>
     </div>
   );
 }
 
 export default function UserHomePage() {
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { system, transactions } = useData();
-
-  const userTransactions = useMemo(() => {
-    if (!currentUser) return [];
-    return transactions
-      .filter((item) => item.userId === currentUser.id)
-      .slice(0, 8);
-  }, [transactions, currentUser]);
-
-  const storagePercent = Math.min(
-    100,
-    (system.bottleStorage / system.maxBottleCapacity) * 100
-  );
-
-  const availableBins = useMemo(
-    () => Object.keys(system.bins || {}),
-    [system.bins]
-  );
-
-  const [insertStep, setInsertStep] = useState("idle");
+  const { transactions } = useData();
+  const [binModalOpen, setBinModalOpen] = useState(false);
+  const [sessionModalOpen, setSessionModalOpen] = useState(false);
+  const [binInput, setBinInput] = useState("");
   const [selectedBinId, setSelectedBinId] = useState("");
-  const [commandWeightKg, setCommandWeightKg] = useState(0);
+  const [insertStep, setInsertStep] = useState("idle");
   const [insertError, setInsertError] = useState("");
+  const [timerSeconds, setTimerSeconds] = useState(60);
+  const [commandWeightKg, setCommandWeightKg] = useState(0);
   const unsubscribeRef = useRef(null);
 
-  useEffect(() => {
-    if (availableBins.length === 1 && !selectedBinId) {
-      setSelectedBinId(availableBins[0]);
+  const userTransactions = useMemo(() => {
+    if (!currentUser) {
+      return [];
     }
-  }, [availableBins, selectedBinId]);
+    return transactions.filter((item) => item.userId === currentUser.id);
+  }, [transactions, currentUser]);
+
+  const monthlyBottleItems = useMemo(() => {
+    const now = new Date();
+    return userTransactions
+      .filter((item) => {
+        const date = new Date(item.timestamp);
+        return (
+          item.type === "bottle" &&
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()
+        );
+      })
+      .reduce((total, item) => total + Number(item.amount || 0), 0);
+  }, [userTransactions]);
+
+  const totalWeightGrams = useMemo(
+    () =>
+      userTransactions
+        .filter((item) => item.type === "bottle")
+        .reduce((total, item) => total + Number(item.kgDelta || 0), 0) * 1000,
+    [userTransactions]
+  );
+
+  const firstName = currentUser?.name?.split(" ")[0] || "User";
 
   useEffect(() => {
     return () => {
-      if (unsubscribeRef.current) unsubscribeRef.current();
+      unsubscribeRef.current?.();
     };
   }, []);
 
+  useEffect(() => {
+    if (!sessionModalOpen || !activeSessionSteps.includes(insertStep)) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setTimerSeconds((value) => Math.max(0, value - 1));
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [sessionModalOpen, insertStep]);
+
+  useEffect(() => {
+    if (
+      !sessionModalOpen ||
+      timerSeconds > 0 ||
+      !activeSessionSteps.includes(insertStep)
+    ) {
+      return;
+    }
+
+    unsubscribeRef.current?.();
+    unsubscribeRef.current = null;
+    setInsertStep("expired");
+    if (selectedBinId) {
+      cancelBinCommand(selectedBinId).catch(() => {});
+    }
+  }, [insertStep, selectedBinId, sessionModalOpen, timerSeconds]);
+
   const subscribeToCommand = (binId) => {
-    if (!realtimeDb || !binId) return;
-    if (unsubscribeRef.current) unsubscribeRef.current();
-    unsubscribeRef.current = onValue(
-      ref(realtimeDb, `bin_commands/${binId}`),
-      (snap) => {
-        if (!snap.exists()) return;
-        const { status, weightKg } = snap.val();
+    if (!firestoreDb || !binId) {
+      return;
+    }
+
+    unsubscribeRef.current?.();
+    unsubscribeRef.current = onSnapshot(
+      doc(firestoreDb, "bin_commands", binId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          return;
+        }
+
+        const { status, weightKg } = snapshot.data();
         if (status === "active") {
           setInsertStep("active");
-        } else if (status === "done") {
-          setCommandWeightKg(weightKg ?? 0);
+          return;
+        }
+
+        if (status === "done") {
+          setCommandWeightKg(Number(weightKg || 0));
           setInsertStep("done");
           unsubscribeRef.current?.();
           unsubscribeRef.current = null;
-        } else if (status === "expired") {
+          return;
+        }
+
+        if (status === "expired") {
           setInsertStep("expired");
           unsubscribeRef.current?.();
           unsubscribeRef.current = null;
@@ -102,267 +170,212 @@ export default function UserHomePage() {
     );
   };
 
-  const handleInsertBottle = async () => {
-    if (!currentUser || !selectedBinId) return;
+  const resetInsertFlow = () => {
+    unsubscribeRef.current?.();
+    unsubscribeRef.current = null;
+    setBinInput("");
+    setSelectedBinId("");
+    setInsertStep("idle");
     setInsertError("");
-    setInsertStep("waiting");
-    const result = await writeBinCommand(selectedBinId, currentUser.id, currentUser.name);
-    if (!result.ok) {
-      setInsertStep("error");
-      setInsertError(result.error || "Failed to send command to hardware.");
+    setTimerSeconds(60);
+    setCommandWeightKg(0);
+    setSessionModalOpen(false);
+  };
+
+  const handleStartInsert = async (event) => {
+    event.preventDefault();
+    const binId = binInput.trim();
+
+    if (!binId) {
+      setInsertError("Enter a bin ID to continue.");
       return;
     }
-    subscribeToCommand(selectedBinId);
-  };
 
-  const handleCancel = async () => {
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
+    if (!firestoreDb) {
+      setInsertError("Firebase is not configured, so the bin cannot be activated.");
+      return;
     }
-    if (selectedBinId) await cancelBinCommand(selectedBinId);
-    setInsertStep("idle");
-    setCommandWeightKg(0);
+
     setInsertError("");
+    setSelectedBinId(binId);
+    setBinModalOpen(false);
+    setSessionModalOpen(true);
+    setInsertStep("waiting");
+    setTimerSeconds(60);
+
+    const result = await writeBinCommand(binId, currentUser.id, currentUser.name);
+    if (!result.ok) {
+      setInsertStep("error");
+      setInsertError(result.error || "Failed to send command to the bin.");
+      return;
+    }
+
+    subscribeToCommand(binId);
   };
 
-  const handleReset = () => {
-    setInsertStep("idle");
-    setCommandWeightKg(0);
-    setInsertError("");
+  const handleCancelSession = async () => {
+    if (selectedBinId && activeSessionSteps.includes(insertStep)) {
+      await cancelBinCommand(selectedBinId);
+    }
+    resetInsertFlow();
   };
 
-  const firstName = currentUser?.name?.split(" ")[0] || "there";
-  const balanceKg = currentUser?.weightKg ?? 0;
+  const minutes = String(Math.floor(timerSeconds / 60)).padStart(2, "0");
+  const seconds = String(timerSeconds % 60).padStart(2, "0");
+  const latestBottleWeight = commandWeightKg * 1000;
 
   return (
-    <div className="stack">
+    <div className="household-home">
+      <section className="portal-hero">
+        <div className="portal-hero-overlay" />
+        <div className="portal-hero-content">
+          <h1>
+            Welcome Back,
+            <span>{firstName}!</span>
+          </h1>
 
-      <section className="home-hero">
-        <div className="home-hero-bg-blob home-hero-bg-blob--1" />
-        <div className="home-hero-bg-blob home-hero-bg-blob--2" />
-        <div className="home-hero-content">
-          <div className="home-hero-text">
-            <p className="home-hero-eyebrow">♻ Plastic Bottle to Rice</p>
-            <h1 className="home-hero-title">
-              Welcome back,<br />
-              <span className="home-hero-name">{firstName}!</span>
-            </h1>
-            <p className="home-hero-sub">
-              Every bottle you drop earns rice for your household. Keep recycling and make an impact in your community.
-            </p>
-          </div>
-          <div className="home-hero-pill">
-            <span className="home-hero-pill-label">Your Balance</span>
-            <span className="home-hero-pill-value">{balanceKg.toFixed(3)} kg</span>
-            <span className="home-hero-pill-eq">≈ {balanceKg.toFixed(3)} kg rice</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="hero-stat-grid">
-        <StatHeroCard
-          color="green"
-          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12l2 2 4-4"/></svg>}
-          label="Your Balance"
-          value={`${balanceKg.toFixed(3)} kg`}
-          subtle="Plastic kg collected"
-        />
-        <StatHeroCard
-          color="amber"
-          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7z"/><path d="M3 11h18"/></svg>}
-          label="Rice Stock"
-          value={`${system.riceStock} kg`}
-          subtle="Shared community inventory"
-        />
-        <StatHeroCard
-          color="blue"
-          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>}
-          label="Bin Capacity"
-          value={`${storagePercent.toFixed(0)}%`}
-          subtle={`${system.bottleStorage} / ${system.maxBottleCapacity} bottles`}
-        />
-      </section>
-
-      <section className="card insert-card">
-        <div className="insert-card-header">
-          <div>
-            <h2 className="card-title">Insert Bottle</h2>
-            <p className="muted-text" style={{marginTop: 4, fontSize: "0.875rem"}}>
-              Drop a plastic bottle into a smart bin to earn points
-            </p>
-          </div>
-          <div className="insert-steps-row">
-            <StepBadge step="1" label="Select Bin" done={insertStep !== "idle"} active={insertStep === "idle"} />
-            <div className="step-connector" />
-            <StepBadge step="2" label="Activate" done={insertStep === "active" || insertStep === "done"} active={insertStep === "waiting"} />
-            <div className="step-connector" />
-            <StepBadge step="3" label="Drop Bottle" done={insertStep === "done"} active={insertStep === "active"} />
-          </div>
-        </div>
-
-        {insertStep === "idle" && (
-          <div className="insert-idle-body">
-            <div className="bin-select-wrap">
-              <label className="bin-select-label" htmlFor="bin-select">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          <div className="portal-stat-row">
+            <StatTile
+              icon={<BottleIcon />}
+              label="Items Recycled"
+              value={monthlyBottleItems}
+              note="This month"
+            />
+            <StatTile
+              icon={
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 7h12l-1 15H7L6 7Z" />
+                  <path d="M9 7V4h6v3" />
+                  <path d="M10 13h4" />
                 </svg>
-                Choose a Smart Bin
-              </label>
-              <select id="bin-select" className="input-field" value={selectedBinId} onChange={(e) => setSelectedBinId(e.target.value)}>
-                {availableBins.length === 0 && <option value="">No bins registered</option>}
-                {availableBins.length > 0 && !selectedBinId && <option value="">Select bin…</option>}
-                {availableBins.map((id) => <option key={id} value={id}>{id}</option>)}
-              </select>
-            </div>
-            <button type="button" className="btn-insert-main" onClick={handleInsertBottle} disabled={!selectedBinId || !realtimeDb}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
-              </svg>
+              }
+              label="Total Weight"
+              value={formatWeight(totalWeightGrams)}
+              note="Combined weight"
+              accent
+            />
+          </div>
+
+          <div className="portal-actions">
+            <button
+              type="button"
+              className="portal-btn portal-btn-rewards"
+              onClick={() => navigate("/user/redeem")}
+            >
+              <GiftIcon />
+              View Rewards
+            </button>
+            <button
+              type="button"
+              className="portal-btn portal-btn-insert"
+              onClick={() => {
+                setInsertError("");
+                setBinModalOpen(true);
+              }}
+            >
+              <BottleIcon />
               Insert Bottle
             </button>
-            {!realtimeDb && <p className="error-text" style={{fontSize: "0.85rem"}}>Firebase not configured — hardware connection unavailable.</p>}
           </div>
-        )}
-
-        {insertStep === "waiting" && (
-          <div className="insert-status-block insert-status-block--waiting">
-            <div className="insert-spinner" />
-            <div>
-              <p style={{fontWeight: 700}}>Sending command…</p>
-              <p className="muted-text" style={{fontSize: "0.85rem", marginTop: 4}}>Connecting to <strong>{selectedBinId}</strong></p>
-            </div>
-            <button type="button" className="outline-btn" onClick={handleCancel}>Cancel</button>
-          </div>
-        )}
-
-        {insertStep === "active" && (
-          <div className="insert-status-block insert-status-block--active">
-            <div className="insert-pulse-ring">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-              </svg>
-            </div>
-            <div>
-              <p className="success-text" style={{fontSize: "1rem"}}>Bin <strong>{selectedBinId}</strong> is ready!</p>
-              <p className="muted-text" style={{fontSize: "0.85rem", marginTop: 4}}>Drop your bottle now. Session closes in 60 seconds.</p>
-            </div>
-            <button type="button" className="outline-btn" onClick={handleCancel}>Cancel</button>
-          </div>
-        )}
-
-        {insertStep === "done" && (
-          <div className="insert-status-block insert-status-block--done">
-            <div className="insert-done-icon">✓</div>
-            <div>
-              <p className="success-text" style={{fontSize: "1rem"}}>Bottle accepted!</p>
-              <p className="muted-text" style={{fontSize: "0.85rem", marginTop: 4}}><strong>{commandWeightKg.toFixed(3)} kg</strong> credited to your balance.</p>
-            </div>
-            <button type="button" className="btn-primary" onClick={handleReset}>Insert Another</button>
-          </div>
-        )}
-
-        {insertStep === "expired" && (
-          <div className="insert-status-block insert-status-block--error">
-            <div className="insert-error-icon">!</div>
-            <div>
-              <p className="error-text" style={{fontSize: "1rem"}}>Session expired</p>
-              <p className="muted-text" style={{fontSize: "0.85rem", marginTop: 4}}>No bottle detected within 60 seconds.</p>
-            </div>
-            <button type="button" className="btn-primary" onClick={handleReset}>Try Again</button>
-          </div>
-        )}
-
-        {insertStep === "error" && (
-          <div className="insert-status-block insert-status-block--error">
-            <div className="insert-error-icon">!</div>
-            <div>
-              <p className="error-text" style={{fontSize: "1rem"}}>Connection error</p>
-              <p className="muted-text" style={{fontSize: "0.85rem", marginTop: 4}}>{insertError || "An error occurred. Check your connection."}</p>
-            </div>
-            <button type="button" className="btn-primary" onClick={handleReset}>Try Again</button>
-          </div>
-        )}
-      </section>
-
-      <section className="how-it-works-grid">
-        <div className="how-card">
-          <div className="how-card-icon how-card-icon--teal">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-            </svg>
-          </div>
-          <h4>Drop Plastic</h4>
-          <p>Insert your plastic bottles into any registered smart bin nearby.</p>
-        </div>
-        <div className="how-card">
-          <div className="how-card-icon how-card-icon--amber">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
-          <h4>Earn Points</h4>
-          <p>The bin weighs your plastic and credits kilograms to your balance automatically.</p>
-        </div>
-        <div className="how-card">
-          <div className="how-card-icon how-card-icon--green">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-              <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-            </svg>
-          </div>
-          <h4>Redeem Rice</h4>
-          <p>Exchange your collected kg balance for rice from the shared community stock.</p>
         </div>
       </section>
 
-      <section className="card">
-        <div className="row-between">
-          <h2 className="card-title">Recent Activity</h2>
-          {userTransactions.length > 0 && (
-            <span className="activity-count-badge">{userTransactions.length} records</span>
-          )}
+      <section id="about" className="portal-section">
+        <div>
+          <p className="portal-section-kicker">Household portal</p>
+          <h2>Track bottles, activate bins, and redeem rice from one place.</h2>
         </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>Type</th>
-                <th>Details</th>
-                <th>kg Delta</th>
-              </tr>
-            </thead>
-            <tbody>
-              {userTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="muted-cell">
-                    <div className="empty-activity">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="32" height="32">
-                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                        <rect x="9" y="3" width="6" height="4" rx="1"/>
-                        <line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/>
-                      </svg>
-                      <p>No activity yet. Insert your first bottle to get started!</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                userTransactions.map((item) => (
-                  <tr key={item.id}>
-                    <td>{formatDateTime(item.timestamp)}</td>
-                    <td><span className={`badge badge-${item.type}`}>{item.type}</span></td>
-                    <td>{item.details}</td>
-                    <td className={item.kgDelta > 0 ? "kg-positive" : "kg-negative"}>
-                      {item.kgDelta > 0 ? `+${item.kgDelta} kg` : `${item.kgDelta} kg`}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="portal-section-card">
+          <strong>{(currentUser?.weightKg ?? 0).toFixed(3)} kg</strong>
+          <span>Available reward balance</span>
         </div>
       </section>
+
+      {binModalOpen ? (
+        <div className="portal-modal-backdrop">
+          <form className="portal-bin-modal" onSubmit={handleStartInsert}>
+            <div className="portal-modal-title">
+              <BottleIcon />
+              <h2>Enter Bin ID</h2>
+            </div>
+            <p>Enter your bin ID to start the bottle insertion session</p>
+            <input
+              className="portal-bin-input"
+              value={binInput}
+              onChange={(event) => setBinInput(event.target.value)}
+              placeholder="e.g. BIN-001"
+              autoFocus
+            />
+            {insertError ? <span className="portal-modal-error">{insertError}</span> : null}
+            <div className="portal-modal-actions">
+              <button
+                type="button"
+                className="portal-modal-btn muted"
+                onClick={() => {
+                  setBinModalOpen(false);
+                  setInsertError("");
+                }}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="portal-modal-btn primary">
+                Proceed
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {sessionModalOpen ? (
+        <div className="portal-modal-backdrop compact">
+          <div className="portal-session-modal">
+            <h2>Insert Bottle</h2>
+            <strong className="portal-session-timer">
+              {insertStep === "done" ? "Done" : `${minutes}:${seconds}`}
+            </strong>
+            <p>
+              {insertStep === "waiting"
+                ? `Activating bin ${selectedBinId}...`
+                : null}
+              {insertStep === "active"
+                ? `Please insert your bottle into bin ${selectedBinId}`
+                : null}
+              {insertStep === "done"
+                ? `Bottle accepted in bin ${selectedBinId}`
+                : null}
+              {insertStep === "expired"
+                ? "Session expired before a bottle was detected."
+                : null}
+              {insertStep === "error" ? insertError || "The bin session failed." : null}
+            </p>
+            <dl className="portal-session-stats">
+              <div>
+                <dt>Total bottles inserted:</dt>
+                <dd>{insertStep === "done" ? "1" : "0"}</dd>
+              </div>
+              <div>
+                <dt>Total weight:</dt>
+                <dd>{formatWeight(totalWeightGrams + latestBottleWeight)}</dd>
+              </div>
+              <div>
+                <dt>Last bottle weight:</dt>
+                <dd>{formatWeight(latestBottleWeight)}</dd>
+              </div>
+            </dl>
+            <button
+              type="button"
+              className="portal-session-done"
+              onClick={
+                activeSessionSteps.includes(insertStep)
+                  ? handleCancelSession
+                  : resetInsertFlow
+              }
+            >
+              {activeSessionSteps.includes(insertStep) ? "Cancel" : "Done"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

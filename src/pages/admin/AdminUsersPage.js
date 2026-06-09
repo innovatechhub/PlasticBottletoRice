@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useData } from "../../app/DataContext";
 
 const emptyNewUser = {
@@ -8,10 +9,9 @@ const emptyNewUser = {
 };
 
 export default function AdminUsersPage() {
-  const { users, transactions, actions } = useData();
+  const { users, actions } = useData();
   const [newUser, setNewUser] = useState(emptyNewUser);
   const [editingId, setEditingId] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingForm, setEditingForm] = useState({
     name: "",
@@ -21,49 +21,11 @@ export default function AdminUsersPage() {
   });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const modalOpen = Boolean(selectedUserId);
 
   const householdUsers = useMemo(
     () => users.filter((user) => user.role === "user"),
     [users]
   );
-
-  const selectedHousehold = useMemo(
-    () => householdUsers.find((user) => user.id === selectedUserId) || null,
-    [householdUsers, selectedUserId]
-  );
-
-  const selectedUserLogs = useMemo(() => {
-    if (!selectedUserId) {
-      return [];
-    }
-
-    return transactions
-      .filter(
-        (item) =>
-          item.userId === selectedUserId &&
-          (item.type === "bottle" || item.type === "redeem")
-      )
-      .slice(0, 20);
-  }, [transactions, selectedUserId]);
-
-  const formatDateTime = (timestamp) =>
-    new Date(timestamp).toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-  const toCreditLog = (log) => {
-    if (log.type === "bottle") {
-      return `Inserted ${log.amount} bottle(s), +${log.kgDelta} kg earned.`;
-    }
-
-    return `Redeemed ${Math.abs(log.riceDeltaKg)} kg of rice, -${Math.abs(
-      log.kgDelta
-    )} kg used.`;
-  };
 
   const startEdit = (user) => {
     setEditingId(user.id);
@@ -121,30 +83,6 @@ export default function AdminUsersPage() {
 
     setStatus(`Deleted account for ${name}.`);
   };
-
-  const closeLogsModal = () => {
-    setSelectedUserId("");
-  };
-
-  useEffect(() => {
-    if (!modalOpen) {
-      document.body.style.overflow = "";
-      return undefined;
-    }
-
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (event) => {
-      if (event.key === "Escape") {
-        closeLogsModal();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [modalOpen]);
 
   return (
     <div className="stack">
@@ -277,13 +215,13 @@ export default function AdminUsersPage() {
                       )}
                     </td>
                     <td>
-                      <button
-                        type="button"
+                      <Link
+                        to={`/admin/users/${user.id}`}
                         className="outline-btn"
-                        onClick={() => setSelectedUserId(user.id)}
+                        style={{ display: "inline-block", textDecoration: "none" }}
                       >
                         View
-                      </button>
+                      </Link>
                     </td>
                     <td className="actions-cell">
                       {isEditing ? (
@@ -330,48 +268,6 @@ export default function AdminUsersPage() {
         </div>
       </section>
 
-      {modalOpen && selectedHousehold ? (
-        <div className="modal-overlay" onClick={closeLogsModal}>
-          <section className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <h2 className="card-title">Household Activity Logs</h2>
-                <p className="muted-text">{selectedHousehold.name}</p>
-              </div>
-              <button type="button" className="outline-btn" onClick={closeLogsModal}>
-                Close
-              </button>
-            </div>
-
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Activity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedUserLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan="2" className="muted-cell">
-                        No bottle insert/redeem logs for {selectedHousehold.name}.
-                      </td>
-                    </tr>
-                  ) : (
-                    selectedUserLogs.map((log) => (
-                      <tr key={log.id}>
-                        <td>{formatDateTime(log.timestamp)}</td>
-                        <td>{toCreditLog(log)}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-      ) : null}
     </div>
   );
 }

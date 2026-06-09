@@ -8,6 +8,7 @@ import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminLogsPage from "./pages/admin/AdminLogsPage";
 import AdminStoragePage from "./pages/admin/AdminStoragePage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminUserViewPage from "./pages/admin/AdminUserViewPage";
 import AboutUsPage from "./pages/AboutUsPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
@@ -106,6 +107,16 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={["admin"]}>
             <AppLayout title="User Management">
               <AdminUsersPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users/:userId"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AppLayout title="Household Profile">
+              <AdminUserViewPage />
             </AppLayout>
           </ProtectedRoute>
         }

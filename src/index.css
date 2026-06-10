@@ -2150,8 +2150,12 @@ th {
   z-index: 150;
   padding: 20px;
   background: rgba(2, 18, 14, 0.66);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
 }
 
 .portal-modal-backdrop.compact {

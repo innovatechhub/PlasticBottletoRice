@@ -1077,6 +1077,10 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+.split-grid__full {
+  grid-column: 1 / -1;
+}
+
 .sub-card {
   padding: 12px;
   border: 1px dashed var(--border);

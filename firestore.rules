@@ -1,82 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function validTransactionPayload() {
-      return request.resource.data.keys().hasAll([
-          'userId', 'userName', 'type', 'amount', 'kgDelta',
-          'riceDeltaKg', 'bottleDelta', 'details', 'timestamp'
-        ])
-        && request.resource.data.userId is string
-        && request.resource.data.userName is string
-        && request.resource.data.userName.size() > 0
-        && request.resource.data.type is string
-        && request.resource.data.type.size() > 0
-        && request.resource.data.amount is number
-        && request.resource.data.kgDelta is number
-        && request.resource.data.riceDeltaKg is number
-        && request.resource.data.bottleDelta is number
-        && request.resource.data.details is string
-        && request.resource.data.timestamp is string
-        && request.resource.data.timestamp.size() > 0;
-    }
-
-    function validNotificationPayload() {
-      return request.resource.data.keys().hasAll([
-          'title', 'message', 'targetRole', 'userId', 'type', 'createdAt', 'readBy'
-        ])
-        && request.resource.data.title is string
-        && request.resource.data.title.size() > 0
-        && request.resource.data.message is string
-        && request.resource.data.message.size() > 0
-        && (request.resource.data.targetRole == 'all'
-          || request.resource.data.targetRole == 'admin'
-          || request.resource.data.targetRole == 'user')
-        && (request.resource.data.userId == null
-          || request.resource.data.userId is string)
-        && request.resource.data.type is string
-        && request.resource.data.type.size() > 0
-        && request.resource.data.createdAt is string
-        && request.resource.data.createdAt.size() > 0
-        && request.resource.data.readBy is list;
-    }
-
-    function validSystemPayload() {
-      return request.resource.data.keys().hasAll([
-          'riceStock', 'bottleStorage', 'maxBottleCapacity', 'kgPerBottle', 'bins'
-        ])
-        && request.resource.data.riceStock is number
-        && request.resource.data.bottleStorage is number
-        && request.resource.data.maxBottleCapacity is number
-        && request.resource.data.maxBottleCapacity > 0
-        && request.resource.data.kgPerBottle is number
-        && request.resource.data.kgPerBottle > 0
-        && request.resource.data.bins is map;
-    }
-
-    match /household/{userId} {
-      allow read, create, update, delete: if true;
-    }
-
-    match /transactions/{transactionId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && validTransactionPayload();
-      allow delete: if isSignedIn();
-    }
-
-    match /notifications/{notificationId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && validNotificationPayload();
-      allow delete: if isSignedIn();
-    }
-
-    match /system/{docId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && validSystemPayload();
-      allow delete: if isSignedIn();
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

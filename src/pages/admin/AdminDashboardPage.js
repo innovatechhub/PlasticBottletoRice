@@ -121,7 +121,7 @@ export default function AdminDashboardPage() {
         <AdminStatCard
           label="Pending Redemptions"
           value={redeemTx.length}
-          sub={`${bottleTx.length} bottle inserts total`}
+          sub={`${bottleTx.length} bottle insert logs`}
           subColor="amber"
           icon={
             <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
@@ -135,8 +135,8 @@ export default function AdminDashboardPage() {
         />
         <AdminStatCard
           label="Items Recycled"
-          value={system.bottleStorage.toLocaleString()}
-          sub={`${storagePercent.toFixed(0)}% of capacity`}
+          value={(system.totalItemsRecycled ?? 0).toLocaleString()}
+          sub={`${Number(system.totalWeightRecycledKg ?? 0).toFixed(3)} kg recycled total`}
           subColor="green"
           icon={
             <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">

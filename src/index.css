@@ -2146,16 +2146,20 @@ th {
 
 .portal-modal-backdrop {
   position: fixed;
-  inset: 0;
-  z-index: 150;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
   padding: 20px;
   background: rgba(2, 18, 14, 0.66);
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
   box-sizing: border-box;
-  width: 100vw;
-  height: 100vh;
 }
 
 .portal-modal-backdrop.compact {
@@ -2164,6 +2168,7 @@ th {
 
 .portal-bin-modal {
   width: min(480px, 100%);
+  margin: auto;
   border-radius: 8px;
   padding: 40px;
   background: linear-gradient(145deg, #ffffff 0%, #f1fff8 100%);
@@ -2254,7 +2259,7 @@ th {
 }
 
 .portal-session-modal {
-  width: min(360px, 100%);
+  width: min(420px, 100%);
   border-radius: 4px;
   padding: 24px 28px;
   background: #ffffff;
@@ -2263,6 +2268,15 @@ th {
   box-shadow: 0 28px 66px rgba(0, 0, 0, 0.32);
   display: grid;
   gap: 12px;
+  margin: auto;
+}
+
+body.portal-modal-lock {
+  overflow: hidden;
+}
+
+body.portal-modal-lock .household-nav {
+  pointer-events: none;
 }
 
 .portal-session-modal h2 {

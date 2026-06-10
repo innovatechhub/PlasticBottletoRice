@@ -35,7 +35,6 @@ let applyingRemote = false;
 let lastSyncedHash = "";
 let writeChain = Promise.resolve();
 
-const processedBinCommands = new Set();
 const processedBinEvents = new Set();
 
 const remoteSnapshotState = {
@@ -142,6 +141,7 @@ export async function saveHouseholdUserToFirestore(user) {
       return { ok: false, error: "Invalid household user." };
     }
 
+    await ensureFirebaseSession();
     await setDoc(doc(firestoreDb, HOUSEHOLD_COLLECTION, user.id), user);
     return { ok: true };
   } catch (error) {
@@ -205,8 +205,8 @@ const pushCollections = async (rawState) => {
 const queuePush = (rawState) => {
   writeChain = writeChain
     .then(() => pushCollections(rawState))
-    .catch(() => {
-      syncMode = "local";
+    .catch((err) => {
+      console.error("Firestore push error:", err);
     });
 };
 
@@ -238,20 +238,29 @@ const readLegacyRealtimeState = async () => {
 };
 
 const bootstrapRemote = async () => {
-  const [householdSnap, txSnap, notifSnap, sysSnap] = await Promise.all([
+  // Use allSettled so a permission error on one collection doesn't abort the whole bootstrap.
+  const [householdRes, txRes, notifRes, sysRes] = await Promise.allSettled([
     getDocs(collection(firestoreDb, HOUSEHOLD_COLLECTION)),
     getDocs(collection(firestoreDb, "transactions")),
     getDocs(collection(firestoreDb, "notifications")),
     getDoc(doc(firestoreDb, "system", "config")),
   ]);
 
-  setRemoteState("users", docsToSortedArray(householdSnap, "createdAt"));
-  setRemoteState("transactions", docsToSortedArray(txSnap, "timestamp"));
-  setRemoteState("notifications", docsToSortedArray(notifSnap, "createdAt"));
-  setRemoteState("system", sysSnap.exists() ? sysSnap.data() : null);
+  const householdSnap = householdRes.status === "fulfilled" ? householdRes.value : null;
+  const txSnap = txRes.status === "fulfilled" ? txRes.value : null;
+  const notifSnap = notifRes.status === "fulfilled" ? notifRes.value : null;
+  const sysSnap = sysRes.status === "fulfilled" ? sysRes.value : null;
+
+  setRemoteState("users", householdSnap ? docsToSortedArray(householdSnap, "createdAt") : []);
+  setRemoteState("transactions", txSnap ? docsToSortedArray(txSnap, "timestamp") : []);
+  setRemoteState("notifications", notifSnap ? docsToSortedArray(notifSnap, "createdAt") : []);
+  setRemoteState("system", sysSnap?.exists() ? sysSnap.data() : null);
 
   const hasFirestoreData =
-    !householdSnap.empty || !txSnap.empty || !notifSnap.empty || sysSnap.exists();
+    householdSnap?.empty === false ||
+    txSnap?.empty === false ||
+    notifSnap?.empty === false ||
+    sysSnap?.exists();
 
   if (hasFirestoreData) {
     applyRemoteToLocal();
@@ -287,20 +296,6 @@ const processBinEvent = async (event) => {
   processedBinEvents.add(event.id);
 
   try {
-    const rawState = dataStore.getRawState();
-    const bin = rawState.system.bins?.[event.binId];
-
-    if (!bin?.assignedUserId) {
-      console.warn(`bin_event ignored - no user assigned to bin "${event.binId}"`);
-      return;
-    }
-
-    dataStore.insertBottleFromHardware(
-      bin.assignedUserId,
-      event.weightKg,
-      event.binId
-    );
-
     await update(ref(realtimeDb, `bin_events/${event.id}`), {
       processed: true,
     });
@@ -317,8 +312,9 @@ const startRemoteListeners = () => {
       setRemoteState("users", docsToSortedArray(snapshot, "createdAt"));
       applyRemoteToLocal();
     },
-    () => {
-      syncMode = "local";
+    (err) => {
+      console.error("household listener error:", err);
+      if (!ready.users) { setRemoteState("users", []); applyRemoteToLocal(); }
     }
   );
 
@@ -328,8 +324,9 @@ const startRemoteListeners = () => {
       setRemoteState("transactions", docsToSortedArray(snapshot, "timestamp"));
       applyRemoteToLocal();
     },
-    () => {
-      syncMode = "local";
+    (err) => {
+      console.error("transactions listener error:", err);
+      if (!ready.transactions) { setRemoteState("transactions", []); applyRemoteToLocal(); }
     }
   );
 
@@ -339,8 +336,9 @@ const startRemoteListeners = () => {
       setRemoteState("notifications", docsToSortedArray(snapshot, "createdAt"));
       applyRemoteToLocal();
     },
-    () => {
-      syncMode = "local";
+    (err) => {
+      console.error("notifications listener error:", err);
+      if (!ready.notifications) { setRemoteState("notifications", []); applyRemoteToLocal(); }
     }
   );
 
@@ -350,8 +348,9 @@ const startRemoteListeners = () => {
       setRemoteState("system", snapshot.exists() ? snapshot.data() : null);
       applyRemoteToLocal();
     },
-    () => {
-      syncMode = "local";
+    (err) => {
+      console.error("system listener error:", err);
+      if (!ready.system) { setRemoteState("system", null); applyRemoteToLocal(); }
     }
   );
 
@@ -373,34 +372,6 @@ const startRemoteListeners = () => {
       () => {}
     );
 
-    // Listen for bin_commands status changes written by ESP32.
-    onValue(
-      ref(realtimeDb, "bin_commands"),
-      (snapshot) => {
-        if (!snapshot.exists()) return;
-        snapshot.forEach((child) => {
-          const data = { id: child.key, ...child.val() };
-
-          if (data.status === "done" && data.userId && data.weightKg > 0) {
-            const key = `${data.id}|${data.requestedAt}`;
-            if (processedBinCommands.has(key)) return;
-            processedBinCommands.add(key);
-
-            dataStore.insertBottleFromHardware(
-              data.userId,
-              data.weightKg,
-              data.binId || data.id
-            );
-
-            update(ref(realtimeDb, `bin_commands/${data.id}`), {
-              status: "idle",
-              weightKg: 0,
-            }).catch(() => {});
-          }
-        });
-      },
-      () => {}
-    );
   }
 };
 
@@ -436,6 +407,21 @@ export function startCloudSync() {
   });
 }
 
+// Returns true if the bin is currently locked by a DIFFERENT user.
+// "waiting" and "active" are the two locked states; everything else is free.
+export async function isBinInUse(binId, requestingUserId) {
+  if (!realtimeDb) return false;
+  try {
+    await ensureFirebaseSession();
+    const snapshot = await get(ref(realtimeDb, `bin_commands/${binId}`));
+    if (!snapshot.exists()) return false;
+    const { status, userId } = snapshot.val();
+    return ["waiting", "active"].includes(status) && userId !== requestingUserId;
+  } catch {
+    return false; // fail open — don't block user if the check itself errors
+  }
+}
+
 // Called by UI when a user requests a bottle insert.
 // Writes "waiting" to RTDB; the ESP32 polls and activates.
 export async function writeBinCommand(binId, userId, userName) {
@@ -458,6 +444,9 @@ export async function writeBinCommand(binId, userId, userName) {
       status: "waiting",
       requestedAt: new Date().toISOString(),
       weightKg: 0,
+      lastWeightKg: 0,
+      acceptedCount: 0,
+      lastAcceptedAt: "",
     });
     return { ok: true };
   } catch (err) {

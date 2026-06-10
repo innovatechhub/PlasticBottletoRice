@@ -88,6 +88,8 @@ export function DataProvider({ children }) {
         dataStore.insertBottle(userId, bottleCount),
       insertBottleFromHardware: (userId, weightKg, binId) =>
         dataStore.insertBottleFromHardware(userId, weightKg, binId),
+      finalizeBottleSession: (userId, bottleWeightsKg, binId) =>
+        dataStore.finalizeBottleSession(userId, bottleWeightsKg, binId),
       updateBinAssignment: (binId, userId, userName) =>
         dataStore.updateBinAssignment(binId, userId, userName),
       redeemRice: (userId, kgToRedeem) =>

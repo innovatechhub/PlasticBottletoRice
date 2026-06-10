@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { onValue, ref } from "firebase/database";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
 import { realtimeDb } from "../../services/firebaseClient";
-import { cancelBinCommand, writeBinCommand } from "../../services/cloudSync";
+import { cancelBinCommand, isBinInUse, writeBinCommand } from "../../services/cloudSync";
 
-const activeSessionSteps = ["waiting", "active"];
+const SESSION_SECONDS = 60;
 
 const formatWeight = (grams) => {
-  if (grams >= 1000) {
-    return `${(grams / 1000).toFixed(2)}kg`;
-  }
-  return `${grams.toFixed(2)}g`;
+  if (grams >= 1000) return `${(grams / 1000).toFixed(2)} kg`;
+  return `${grams.toFixed(2)} g`;
 };
 
 function BottleIcon() {
@@ -37,6 +35,14 @@ function GiftIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 function StatTile({ icon, label, value, note, accent }) {
   return (
     <div className="portal-stat-tile">
@@ -53,114 +59,94 @@ function StatTile({ icon, label, value, note, accent }) {
 export default function UserHomePage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { transactions } = useData();
+  const { transactions, actions } = useData();
+
   const [binModalOpen, setBinModalOpen] = useState(false);
-  const [sessionModalOpen, setSessionModalOpen] = useState(false);
   const [binInput, setBinInput] = useState("");
+  const [binError, setBinError] = useState("");
+
+  const [sessionOpen, setSessionOpen] = useState(false);
   const [selectedBinId, setSelectedBinId] = useState("");
   const [insertStep, setInsertStep] = useState("idle");
   const [insertError, setInsertError] = useState("");
-  const [timerSeconds, setTimerSeconds] = useState(60);
-  const [commandWeightKg, setCommandWeightKg] = useState(0);
-  const unsubscribeRef = useRef(null);
+  const [timerSeconds, setTimerSeconds] = useState(SESSION_SECONDS);
+  const [sessionBottles, setSessionBottles] = useState([]);
+  const [sessionSaved, setSessionSaved] = useState(false);
 
-  const userTransactions = useMemo(() => {
-    if (!currentUser) {
-      return [];
-    }
-    return transactions.filter((item) => item.userId === currentUser.id);
-  }, [transactions, currentUser]);
+  const unsubRef = useRef(null);
+  const lastAcceptedAtRef = useRef("");
+  const sessionInfoRef = useRef({ binId: "", userId: "", userName: "" });
 
-  const monthlyBottleItems = useMemo(() => {
-    const now = new Date();
-    return userTransactions
-      .filter((item) => {
-        const date = new Date(item.timestamp);
-        return (
-          item.type === "bottle" &&
-          date.getMonth() === now.getMonth() &&
-          date.getFullYear() === now.getFullYear()
-        );
-      })
-      .reduce((total, item) => total + Number(item.amount || 0), 0);
-  }, [userTransactions]);
+  useEffect(() => {
+    sessionInfoRef.current = {
+      binId: selectedBinId,
+      userId: currentUser?.id || "",
+      userName: currentUser?.name || "",
+    };
+  }, [selectedBinId, currentUser]);
 
-  const totalWeightGrams = useMemo(
-    () =>
-      userTransactions
-        .filter((item) => item.type === "bottle")
-        .reduce((total, item) => total + Number(item.kgDelta || 0), 0) * 1000,
-    [userTransactions]
+  useEffect(
+    () => () => {
+      unsubRef.current?.();
+    },
+    []
   );
 
-  const firstName = currentUser?.name?.split(" ")[0] || "User";
-
   useEffect(() => {
+    const isModalOpen = binModalOpen || sessionOpen;
+    document.body.classList.toggle("portal-modal-lock", isModalOpen);
     return () => {
-      unsubscribeRef.current?.();
+      document.body.classList.remove("portal-modal-lock");
     };
-  }, []);
+  }, [binModalOpen, sessionOpen]);
 
   useEffect(() => {
-    if (!sessionModalOpen || !activeSessionSteps.includes(insertStep)) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setTimerSeconds((value) => Math.max(0, value - 1));
+    if (!sessionOpen || insertStep !== "active") return undefined;
+    const id = setInterval(() => {
+      setTimerSeconds((t) => Math.max(0, t - 1));
     }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, [sessionModalOpen, insertStep]);
+    return () => clearInterval(id);
+  }, [sessionOpen, insertStep]);
 
   useEffect(() => {
-    if (
-      !sessionModalOpen ||
-      timerSeconds > 0 ||
-      !activeSessionSteps.includes(insertStep)
-    ) {
-      return;
-    }
+    if (!sessionOpen || timerSeconds > 0 || insertStep !== "active") return;
+    unsubRef.current?.();
+    unsubRef.current = null;
+    cancelBinCommand(sessionInfoRef.current.binId).catch(() => {});
+    setInsertStep("summary");
+  }, [sessionOpen, timerSeconds, insertStep]);
 
-    unsubscribeRef.current?.();
-    unsubscribeRef.current = null;
-    setInsertStep("expired");
-    if (selectedBinId) {
-      cancelBinCommand(selectedBinId).catch(() => {});
-    }
-  }, [insertStep, selectedBinId, sessionModalOpen, timerSeconds]);
-
-  const subscribeToCommand = (binId) => {
-    if (!realtimeDb || !binId) {
-      return;
-    }
-
-    unsubscribeRef.current?.();
-    unsubscribeRef.current = onValue(
+  const subscribeToCommand = useCallback((binId) => {
+    if (!realtimeDb || !binId) return;
+    unsubRef.current?.();
+    unsubRef.current = onValue(
       ref(realtimeDb, `bin_commands/${binId}`),
       (snapshot) => {
-        if (!snapshot.exists()) {
-          return;
-        }
+        if (!snapshot.exists()) return;
+        const { status, lastWeightKg, lastAcceptedAt } = snapshot.val();
 
-        const { status, weightKg } = snapshot.val();
         if (status === "active") {
           setInsertStep("active");
+          if (lastAcceptedAt && lastAcceptedAt !== lastAcceptedAtRef.current) {
+            const kg = Number(lastWeightKg || 0);
+            if (kg > 0) {
+              setSessionBottles((prev) => [...prev, { weightKg: kg }]);
+              setTimerSeconds(SESSION_SECONDS);
+            }
+            lastAcceptedAtRef.current = lastAcceptedAt;
+          }
           return;
         }
 
-        if (status === "done") {
-          setCommandWeightKg(Number(weightKg || 0));
-          setInsertStep("done");
-          unsubscribeRef.current?.();
-          unsubscribeRef.current = null;
+        if (status === "waiting") {
+          setInsertStep("waiting");
           return;
         }
 
-        if (status === "expired") {
-          setInsertStep("expired");
-          unsubscribeRef.current?.();
-          unsubscribeRef.current = null;
+        if (status === "expired" || status === "idle") {
+          setInsertStep("summary");
+          unsubRef.current?.();
+          unsubRef.current = null;
         }
       },
       () => {
@@ -168,40 +154,39 @@ export default function UserHomePage() {
         setInsertError("Lost connection to Firebase.");
       }
     );
-  };
-
-  const resetInsertFlow = () => {
-    unsubscribeRef.current?.();
-    unsubscribeRef.current = null;
-    setBinInput("");
-    setSelectedBinId("");
-    setInsertStep("idle");
-    setInsertError("");
-    setTimerSeconds(60);
-    setCommandWeightKg(0);
-    setSessionModalOpen(false);
-  };
+  }, []);
 
   const handleStartInsert = async (event) => {
     event.preventDefault();
     const binId = binInput.trim();
 
     if (!binId) {
-      setInsertError("Enter a bin ID to continue.");
+      setBinError("Enter a bin ID to continue.");
       return;
     }
 
     if (!realtimeDb) {
-      setInsertError("Firebase is not configured, so the bin cannot be activated.");
+      setBinError("Firebase is not configured.");
       return;
     }
 
-    setInsertError("");
+    setBinError("");
+
+    const inUse = await isBinInUse(binId, currentUser.id);
+    if (inUse) {
+      setBinError("This bin is currently in use by another user. Please wait.");
+      return;
+    }
+
     setSelectedBinId(binId);
+    setSessionBottles([]);
+    lastAcceptedAtRef.current = "";
+    setSessionSaved(false);
+    setInsertError("");
     setBinModalOpen(false);
-    setSessionModalOpen(true);
+    setSessionOpen(true);
     setInsertStep("waiting");
-    setTimerSeconds(60);
+    setTimerSeconds(SESSION_SECONDS);
 
     const result = await writeBinCommand(binId, currentUser.id, currentUser.name);
     if (!result.ok) {
@@ -213,16 +198,71 @@ export default function UserHomePage() {
     subscribeToCommand(binId);
   };
 
-  const handleCancelSession = async () => {
-    if (selectedBinId && activeSessionSteps.includes(insertStep)) {
+  const handleDone = async () => {
+    unsubRef.current?.();
+    unsubRef.current = null;
+
+    if (!sessionSaved && sessionBottles.length > 0) {
+      const result = actions.finalizeBottleSession(
+        currentUser.id,
+        sessionBottles.map((bottle) => bottle.weightKg),
+        selectedBinId
+      );
+      if (!result.ok) {
+        setInsertStep("error");
+        setInsertError(result.error || "Failed to save this bottle session.");
+        return;
+      }
+      setSessionSaved(true);
+    }
+
+    if (insertStep === "waiting" || insertStep === "active") {
       await cancelBinCommand(selectedBinId);
     }
-    resetInsertFlow();
+    setInsertStep("summary");
   };
 
+  const handleCloseSession = () => {
+    if (!sessionSaved && sessionBottles.length > 0) {
+      const result = actions.finalizeBottleSession(
+        currentUser.id,
+        sessionBottles.map((bottle) => bottle.weightKg),
+        selectedBinId
+      );
+      if (!result.ok) {
+        setInsertStep("error");
+        setInsertError(result.error || "Failed to save this bottle session.");
+        return;
+      }
+    }
+
+    unsubRef.current?.();
+    unsubRef.current = null;
+    setBinInput("");
+    setSelectedBinId("");
+    setInsertStep("idle");
+    setInsertError("");
+    setBinError("");
+    setTimerSeconds(SESSION_SECONDS);
+    setSessionBottles([]);
+    lastAcceptedAtRef.current = "";
+    setSessionSaved(false);
+    setSessionOpen(false);
+  };
+
+  const sessionBottleCount = sessionBottles.length;
+  const sessionTotalKg = sessionBottles.reduce((sum, bottle) => sum + bottle.weightKg, 0);
+  const totalItemsRecycled = useMemo(() => {
+    if (!currentUser) return 0;
+    return transactions
+      .filter((item) => item.userId === currentUser.id && item.type === "bottle")
+      .reduce((sum, item) => sum + Number(item.amount || item.bottleDelta || 0), 0);
+  }, [transactions, currentUser]);
+  const totalWeightGrams = Number(currentUser?.weightKg || 0) * 1000;
+
+  const firstName = currentUser?.name?.split(" ")[0] || "User";
   const minutes = String(Math.floor(timerSeconds / 60)).padStart(2, "0");
   const seconds = String(timerSeconds % 60).padStart(2, "0");
-  const latestBottleWeight = commandWeightKg * 1000;
 
   return (
     <div className="household-home">
@@ -246,8 +286,8 @@ export default function UserHomePage() {
             <StatTile
               icon={<BottleIcon />}
               label="Items Recycled"
-              value={monthlyBottleItems}
-              note="This month"
+              value={totalItemsRecycled}
+              note="Stored total"
             />
             <StatTile
               icon={
@@ -259,7 +299,7 @@ export default function UserHomePage() {
               }
               label="Total Weight"
               value={formatWeight(totalWeightGrams)}
-              note="Combined weight"
+              note="Same as your balance"
               accent
             />
           </div>
@@ -277,7 +317,7 @@ export default function UserHomePage() {
               type="button"
               className="portal-btn portal-btn-insert"
               onClick={() => {
-                setInsertError("");
+                setBinError("");
                 setBinModalOpen(true);
               }}
             >
@@ -294,7 +334,7 @@ export default function UserHomePage() {
           <h2>Track bottles, activate bins, and redeem rice from one place.</h2>
         </div>
         <div className="portal-section-card">
-          <strong>{(currentUser?.weightKg ?? 0).toFixed(3)} kg</strong>
+          <strong>{formatWeight(Number(currentUser?.weightKg || 0) * 1000)}</strong>
           <span>Available reward balance</span>
         </div>
       </section>
@@ -310,18 +350,18 @@ export default function UserHomePage() {
             <input
               className="portal-bin-input"
               value={binInput}
-              onChange={(event) => setBinInput(event.target.value)}
-              placeholder="e.g. BIN-001"
+              onChange={(e) => setBinInput(e.target.value)}
+              placeholder="e.g. bin_001"
               autoFocus
             />
-            {insertError ? <span className="portal-modal-error">{insertError}</span> : null}
+            {binError ? <span className="portal-modal-error">{binError}</span> : null}
             <div className="portal-modal-actions">
               <button
                 type="button"
                 className="portal-modal-btn muted"
                 onClick={() => {
                   setBinModalOpen(false);
-                  setInsertError("");
+                  setBinError("");
                 }}
               >
                 Cancel
@@ -334,53 +374,79 @@ export default function UserHomePage() {
         </div>
       ) : null}
 
-      {sessionModalOpen ? (
+      {sessionOpen ? (
         <div className="portal-modal-backdrop compact">
           <div className="portal-session-modal">
-            <h2>Insert Bottle</h2>
-            <strong className="portal-session-timer">
-              {insertStep === "done" ? "Done" : `${minutes}:${seconds}`}
-            </strong>
-            <p>
-              {insertStep === "waiting"
-                ? `Activating bin ${selectedBinId}...`
-                : null}
-              {insertStep === "active"
-                ? `Please insert your bottle into bin ${selectedBinId}`
-                : null}
-              {insertStep === "done"
-                ? `Bottle accepted in bin ${selectedBinId}`
-                : null}
-              {insertStep === "expired"
-                ? "Session expired before a bottle was detected."
-                : null}
-              {insertStep === "error" ? insertError || "The bin session failed." : null}
-            </p>
-            <dl className="portal-session-stats">
-              <div>
-                <dt>Total bottles inserted:</dt>
-                <dd>{insertStep === "done" ? "1" : "0"}</dd>
-              </div>
-              <div>
-                <dt>Total weight:</dt>
-                <dd>{formatWeight(totalWeightGrams + latestBottleWeight)}</dd>
-              </div>
-              <div>
-                <dt>Last bottle weight:</dt>
-                <dd>{formatWeight(latestBottleWeight)}</dd>
-              </div>
-            </dl>
-            <button
-              type="button"
-              className="portal-session-done"
-              onClick={
-                activeSessionSteps.includes(insertStep)
-                  ? handleCancelSession
-                  : resetInsertFlow
-              }
-            >
-              {activeSessionSteps.includes(insertStep) ? "Cancel" : "Done"}
-            </button>
+            {insertStep === "summary" ? (
+              <>
+                <div className="portal-summary-icon">
+                  <CheckIcon />
+                </div>
+                <h2>Session Complete</h2>
+                <p className="portal-session-bin">Bin {selectedBinId}</p>
+
+                <div className="portal-summary-big">
+                  <span className="portal-summary-count">{sessionBottleCount}</span>
+                  <span className="portal-summary-unit">
+                    bottle{sessionBottleCount !== 1 ? "s" : ""} accepted
+                  </span>
+                </div>
+
+                <dl className="portal-session-stats">
+                  <div>
+                    <dt>Total weight collected:</dt>
+                    <dd>{formatWeight(sessionTotalKg * 1000)}</dd>
+                  </div>
+                  <div>
+                    <dt>Credited to your account:</dt>
+                    <dd>{sessionSaved ? `${sessionTotalKg.toFixed(4)} kg` : `${sessionTotalKg.toFixed(4)} kg pending save`}</dd>
+                  </div>
+                </dl>
+
+                <button
+                  type="button"
+                  className="portal-session-done"
+                  onClick={handleCloseSession}
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <h2>Insert Bottle</h2>
+
+                {insertStep === "active" ? (
+                  <strong className="portal-session-timer">{`${minutes}:${seconds}`}</strong>
+                ) : null}
+
+                <p>
+                  {insertStep === "waiting" ? `Activating bin ${selectedBinId}...` : null}
+                  {insertStep === "active" ? `Drop bottles into bin ${selectedBinId}` : null}
+                  {insertStep === "error" ? insertError || "The bin session failed." : null}
+                </p>
+
+                {sessionBottleCount > 0 ? (
+                  <dl className="portal-session-stats">
+                    <div>
+                      <dt>Bottles accepted:</dt>
+                      <dd>{sessionBottleCount}</dd>
+                    </div>
+                    <div>
+                      <dt>Weight collected:</dt>
+                      <dd>{formatWeight(sessionTotalKg * 1000)}</dd>
+                    </div>
+                  </dl>
+                ) : null}
+
+                <button
+                  type="button"
+                  className="portal-session-done"
+                  onClick={handleDone}
+                >
+                  Done and Save
+                </button>
+              </>
+            )}
           </div>
         </div>
       ) : null}

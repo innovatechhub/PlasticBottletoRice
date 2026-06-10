@@ -5,6 +5,11 @@ import { onValue, ref } from "firebase/database";
 import { realtimeDb } from "../../services/firebaseClient";
 import { writeRiceCommand } from "../../services/cloudSync";
 
+const formatWeight = (grams) => {
+  if (grams >= 1000) return `${(grams / 1000).toFixed(2)} kg`;
+  return `${grams.toFixed(2)} g`;
+};
+
 export default function UserRedeemPage() {
   const { currentUser } = useAuth();
   const { system, actions } = useData();
@@ -20,6 +25,10 @@ export default function UserRedeemPage() {
   const unsubscribeRef = useRef(null);
 
   const estimatedRice = useMemo(() => Number(kgToRedeem || 0), [kgToRedeem]);
+  const redeemOptions = [
+    { value: 0.5, label: "500 grams" },
+    { value: 1, label: "1000 grams" },
+  ];
 
   const availableBins = useMemo(
     () => Object.keys(system.bins || {}),
@@ -109,7 +118,7 @@ export default function UserRedeemPage() {
         <div className="split-grid">
           <div className="sub-card">
             <p>Your balance</p>
-            <h3>{(currentUser?.weightKg ?? 0).toFixed(3)} kg</h3>
+            <h3>{formatWeight(Number(currentUser?.weightKg || 0) * 1000)}</h3>
           </div>
           <div className="sub-card">
             <p>Available rice stock</p>
@@ -148,17 +157,20 @@ export default function UserRedeemPage() {
             </label>
 
             <label>
-              kg to redeem
-              <input
+              Amount to redeem
+              <select
                 className="input-field"
-                type="number"
-                min="0.001"
-                step="0.001"
                 value={kgToRedeem}
                 onChange={(e) =>
-                  setKgToRedeem(Math.max(0.001, Number(e.target.value)))
+                  setKgToRedeem(Number(e.target.value))
                 }
-              />
+              >
+                {redeemOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <button type="submit" className="btn-primary">

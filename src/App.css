@@ -406,6 +406,7 @@
 
 .eco-landing__hero-visual {
   position: relative;
+  overflow: visible;
 }
 
 .eco-landing__hero-card {
@@ -413,9 +414,14 @@
   overflow: hidden;
   min-height: 540px;
   border-radius: 28px;
-  background: var(--surface);
+  background: transparent;
   box-shadow: var(--shadow);
   border: 1px solid rgba(194, 201, 187, 0.6);
+}
+
+.eco-landing__hero-card--motion {
+  transform-origin: center center;
+  will-change: transform;
 }
 
 .eco-landing__hero-card img {
@@ -429,8 +435,8 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(252, 249, 242, 0.08) 0%, rgba(12, 36, 10, 0.34) 100%),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+    linear-gradient(180deg, rgba(252, 249, 242, 0.03) 0%, rgba(12, 36, 10, 0.16) 100%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0));
 }
 
 .eco-landing__hero-badge,

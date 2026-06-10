@@ -28,7 +28,15 @@ export default function AboutUsPage() {
   return (
     <PublicSiteLayout>
       <main>
-        <section className="eco-landing__hero">
+        <section
+          className="eco-landing__hero"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(0, 45, 20, 0.42) 0%, rgba(2, 56, 28, 0.68) 100%), url(${process.env.PUBLIC_URL}/PageUI.png)`,
+            backgroundPosition: "center center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+          }}
+        >
           <div className="eco-landing__hero-inner">
             <div className="eco-landing__hero-copy-panel">
               <span className="eco-landing__eyebrow">About EcoRice</span>

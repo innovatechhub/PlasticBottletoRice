@@ -1,36 +1,51 @@
+import { useNavigate } from "react-router-dom";
 import PublicSiteLayout from "../components/PublicSiteLayout";
 
 export default function RewardsPage() {
+  const navigate = useNavigate();
+
   return (
     <PublicSiteLayout>
       <main>
-        <section className="eco-landing__hero">
-          <div className="eco-landing__hero-inner">
-            <div className="eco-landing__hero-copy-panel">
-              <span className="eco-landing__eyebrow">Rewards & Impact</span>
-              <h1 className="eco-landing__title eco-landing__title--banner">
-                Your Impact, Rewarded.
-              </h1>
-              <p className="eco-landing__subtitle eco-landing__subtitle--banner">
-                Turn your plastic waste into Rice Credits. Support your family, help
-                your community, and heal the planet one kilogram at a time.
-              </p>
+        <section
+          className="eco-landing__hero eco-landing__hero--banner"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(0, 45, 20, 0.42) 0%, rgba(2, 56, 28, 0.68) 100%), url(${process.env.PUBLIC_URL}/PageUI.png)`,
+            backgroundPosition: "center center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+          }}
+        >
+          <div className="eco-landing__hero-banner">
+            <div className="eco-landing__hero-banner-glow" />
+            <div className="eco-landing__hero-banner-icon" aria-hidden="true">
+              <span className="material-symbols-outlined">redeem</span>
             </div>
+            <span className="eco-landing__eyebrow">Rewards & Impact</span>
+            <h1 className="eco-landing__title eco-landing__title--banner">
+              Your Impact, Rewarded.
+            </h1>
+            <p className="eco-landing__subtitle eco-landing__subtitle--banner">
+              Turn your plastic waste into Rice Credits. Support your family, help
+              your community, and heal the planet one kilogram at a time.
+            </p>
 
-            <div className="eco-landing__hero-visual">
-              <div className="eco-landing__hero-card">
-                <img
-                  alt="A premium rice bag and community donation products"
-                  src="https://lh3.googleusercontent.com/aida/AP1WRLvHhs0AlBhUoRSpdGOm4zXMKnP8yusCalHlPyjZ-25fg9ccdtQvIIUSAdz2TqRt6ny31TphL4237x-tDmDyjiewjp5ki0KVtJ6yAzbsymukDQ7o85efjX9HE5lqIQRdk-Lk2_Vgxn0g_57wAXeTK0E7yREST_1DjjsE_lKnSC4n9Zedt3zOw0cXzlwoH1vwY6Gp8CMddRoDP0dVf4_IXTJ3i34Q0cIFaabdv8CvGIlYoRPIEFpnFuQpcZw"
-                />
-                <div className="eco-landing__hero-card-overlay" />
-                <div className="eco-landing__hero-badge">Rewards Catalog</div>
-              </div>
+            <div className="eco-landing__hero-actions eco-landing__hero-actions--banner">
+              <button
+                type="button"
+                className="eco-landing__btn eco-landing__btn--primary eco-landing__btn--banner-primary"
+                onClick={() => navigate("/login")}
+              >
+                Get Started
+              </button>
+              <a className="eco-landing__btn eco-landing__btn--outline" href="#rewards-details">
+                Learn More
+              </a>
             </div>
           </div>
         </section>
 
-        <section className="eco-landing__section eco-landing__section--soft">
+        <section className="eco-landing__section eco-landing__section--soft" id="rewards-details">
           <div className="eco-landing__section-inner eco-landing__rewards-layout">
             <div className="eco-landing__panel">
               <h3 className="eco-landing__panel-title">Live Impact Tracker</h3>

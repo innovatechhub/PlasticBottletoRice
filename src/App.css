@@ -907,6 +907,128 @@
   font-size: 0.95rem;
 }
 
+.eco-about-values {
+  padding: 82px 0 28px;
+  background: #ffffff;
+}
+
+.eco-about-values__inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 56px;
+}
+
+.eco-about-values__card {
+  border-radius: 12px;
+  border: 1px solid rgba(196, 209, 195, 0.72);
+  padding: 42px 42px 40px;
+  box-shadow: 0 18px 42px rgba(32, 58, 33, 0.08);
+}
+
+.eco-about-values__card--green {
+  background: #eaf9ef;
+}
+
+.eco-about-values__card--amber {
+  background: #fbf7d8;
+}
+
+.eco-about-values__heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.eco-about-values__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.eco-about-values__card--green .eco-about-values__icon {
+  background: #1a8b4b;
+  color: #ffffff;
+}
+
+.eco-about-values__card--amber .eco-about-values__icon {
+  background: #e7b53a;
+  color: #ffffff;
+}
+
+.eco-about-values__title {
+  margin: 0;
+  font-family: "Montserrat", sans-serif;
+  font-size: clamp(1.65rem, 2.25vw, 2.35rem);
+  line-height: 1.1;
+  color: #253042;
+}
+
+.eco-about-values__copy {
+  margin: 0;
+  color: #435066;
+  font-size: clamp(1.03rem, 1.16vw, 1.18rem);
+  line-height: 1.7;
+  max-width: 575px;
+}
+
+.eco-about-smartbin {
+  padding: 86px 0;
+}
+
+.eco-about-smartbin--light {
+  background: #ffffff;
+}
+
+.eco-about-smartbin--soft {
+  background: linear-gradient(
+    90deg,
+    rgba(235, 247, 232, 0.96) 0%,
+    rgba(235, 247, 232, 0.96) 50%,
+    rgba(252, 247, 219, 0.96) 50%,
+    rgba(252, 247, 219, 0.96) 100%
+  );
+}
+
+.eco-about-smartbin__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.eco-about-smartbin__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 60px 76px;
+}
+
+.eco-about-smartbin__item {
+  max-width: 610px;
+}
+
+.eco-about-smartbin__title {
+  margin: 0 0 16px;
+  font-family: "Montserrat", sans-serif;
+  font-size: clamp(2.15rem, 3.15vw, 2.9rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #178b52;
+}
+
+.eco-about-smartbin__copy {
+  margin: 0;
+  color: #475166;
+  font-size: clamp(1.04rem, 1.08vw, 1.18rem);
+  line-height: 1.75;
+  max-width: 600px;
+}
+
 .eco-landing__cta {
   text-align: center;
 }
@@ -1060,6 +1182,16 @@
   .eco-landing__hero-copy-panel {
     max-width: 760px;
   }
+
+  .eco-about-values__inner {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .eco-about-smartbin__grid {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1183,6 +1315,57 @@
 
   .eco-landing__section {
     padding: 22px 0 66px;
+  }
+
+  .eco-about-values {
+    padding: 52px 0 20px;
+  }
+
+  .eco-about-values__inner {
+    padding: 0 16px;
+    gap: 16px;
+  }
+
+  .eco-about-values__card {
+    padding: 26px 20px 24px;
+    border-radius: 10px;
+  }
+
+  .eco-about-values__heading {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .eco-about-values__icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .eco-about-values__title {
+    font-size: clamp(1.25rem, 6vw, 1.6rem);
+  }
+
+  .eco-about-values__copy {
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+
+  .eco-about-smartbin {
+    padding: 58px 0;
+  }
+
+  .eco-about-smartbin__inner {
+    padding: 0 16px;
+  }
+
+  .eco-about-smartbin__title {
+    font-size: clamp(1.7rem, 8vw, 2.15rem);
+    margin-bottom: 12px;
+  }
+
+  .eco-about-smartbin__copy {
+    font-size: 1.02rem;
+    line-height: 1.72;
   }
 
   .eco-landing__catalog-toolbar {

@@ -11,6 +11,7 @@ const REQUIRED_HOUSEHOLD_ACCOUNT = {
   email: "garcia@pbtr.local",
   password: "user123",
   role: "user",
+  barangay: "",
 };
 
 const now = () => new Date().toISOString();
@@ -35,6 +36,7 @@ const seedState = () => ({
       email: REQUIRED_ADMIN_ACCOUNT.email,
       password: REQUIRED_ADMIN_ACCOUNT.password,
       role: REQUIRED_ADMIN_ACCOUNT.role,
+      barangay: "",
       weightKg: 0,
       createdAt: now(),
     },
@@ -44,6 +46,7 @@ const seedState = () => ({
       email: REQUIRED_HOUSEHOLD_ACCOUNT.email,
       password: REQUIRED_HOUSEHOLD_ACCOUNT.password,
       role: REQUIRED_HOUSEHOLD_ACCOUNT.role,
+      barangay: REQUIRED_HOUSEHOLD_ACCOUNT.barangay,
       weightKg: 0,
       createdAt: now(),
     },
@@ -103,6 +106,7 @@ const normalizeState = (candidateState) => {
           email: String(user.email || "").toLowerCase(),
           password: user.password || "user123",
           role: user.role === "admin" ? "admin" : "user",
+          barangay: String(user.barangay || "").trim(),
           weightKg: Math.max(0, toNumber(user.weightKg ?? user.points, 0)),
           createdAt: user.createdAt || now(),
         }))
@@ -117,6 +121,7 @@ const normalizeState = (candidateState) => {
         name: requiredUser.name,
         role: requiredUser.role,
         password: requiredUser.password,
+        barangay: requiredUser.barangay || "",
       };
       return;
     }
@@ -127,6 +132,7 @@ const normalizeState = (candidateState) => {
       email: requiredUser.email,
       password: requiredUser.password,
       role: requiredUser.role,
+      barangay: requiredUser.barangay || "",
       weightKg: 0,
       createdAt: now(),
     });
@@ -274,11 +280,12 @@ export const dataStore = {
     const name = String(payload.name || "").trim();
     const email = String(payload.email || "").trim().toLowerCase();
     const password = String(payload.password || "").trim();
+    const barangay = String(payload.barangay || "").trim();
 
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !barangay) {
       return {
         ok: false,
-        error: "Name, email, and password are required.",
+        error: "Name, email, password, and barangay are required.",
       };
     }
 
@@ -288,6 +295,7 @@ export const dataStore = {
       email,
       password,
       role: "user",
+      barangay,
       weightKg: 0,
       createdAt: now(),
     };
@@ -341,6 +349,17 @@ export const dataStore = {
 
     if (typeof updates.password !== "undefined" && updates.password !== "") {
       user.password = String(updates.password);
+    }
+
+    if (typeof updates.barangay !== "undefined") {
+      const barangay = String(updates.barangay).trim();
+      if (!barangay) {
+        return {
+          ok: false,
+          error: "Barangay cannot be empty.",
+        };
+      }
+      user.barangay = barangay;
     }
 
     if (typeof updates.weightKg !== "undefined") {

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import { useData } from "../../app/DataContext";
+import { tibiaoBarangays } from "../../constants/tibiaoBarangays";
 
 const BASE_URL = window.location.origin;
 
@@ -64,6 +65,7 @@ export default function AdminUserViewPage() {
     setEditForm({
       name: household.name,
       email: household.email,
+      barangay: household.barangay || "",
       weightKg: household.weightKg ?? 0,
       password: "",
     });
@@ -163,6 +165,10 @@ export default function AdminUserViewPage() {
                 <dd>{household.email}</dd>
               </div>
               <div className="hv-info-row">
+                <dt>Barangay</dt>
+                <dd>{household.barangay || "Unassigned"}</dd>
+              </div>
+              <div className="hv-info-row">
                 <dt>Balance</dt>
                 <dd><strong>{(household.weightKg ?? 0).toFixed(3)} kg</strong></dd>
               </div>
@@ -199,6 +205,10 @@ export default function AdminUserViewPage() {
                   <dd>{household.email}</dd>
                 </div>
                 <div className="hv-info-row">
+                  <dt>Barangay</dt>
+                  <dd>{household.barangay || "Unassigned"}</dd>
+                </div>
+                <div className="hv-info-row">
                   <dt>Password</dt>
                   <dd className="hv-password-row">
                     <span>{showPassword ? (household.password || "—") : "••••••••"}</span>
@@ -232,6 +242,24 @@ export default function AdminUserViewPage() {
                     onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
                     required
                   />
+                </label>
+                <label className="hv-label">
+                  Barangay
+                  <select
+                    className="input-field"
+                    value={editForm.barangay}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, barangay: e.target.value }))
+                    }
+                    required
+                  >
+                    <option value="">Select barangay</option>
+                    {tibiaoBarangays.map((barangay) => (
+                      <option key={barangay} value={barangay}>
+                        {barangay}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="hv-label">
                   Balance (kg)

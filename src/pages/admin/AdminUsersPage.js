@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useData } from "../../app/DataContext";
+import { tibiaoBarangays } from "../../constants/tibiaoBarangays";
 
 const emptyNewUser = {
   name: "",
   email: "",
+  barangay: "",
   password: "",
 };
 
@@ -32,6 +34,7 @@ export default function AdminUsersPage() {
     setEditingForm({
       name: user.name,
       email: user.email,
+      barangay: user.barangay || "",
       weightKg: user.weightKg,
       password: "",
     });
@@ -110,6 +113,7 @@ export default function AdminUsersPage() {
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Barangay</th>
                 <th>Balance (kg)</th>
                 <th>View</th>
                 <th>Actions</th>
@@ -150,6 +154,30 @@ export default function AdminUsersPage() {
                         />
                       ) : (
                         user.email
+                      )}
+                    </td>
+                    <td>
+                      {isEditing ? (
+                        <select
+                          className="input-field"
+                          value={editingForm.barangay}
+                          onChange={(event) =>
+                            setEditingForm((prev) => ({
+                              ...prev,
+                              barangay: event.target.value,
+                            }))
+                          }
+                          required
+                        >
+                          <option value="">Select barangay</option>
+                          {tibiaoBarangays.map((barangay) => (
+                            <option key={barangay} value={barangay}>
+                              {barangay}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        user.barangay || "—"
                       )}
                     </td>
                     <td>
@@ -274,6 +302,24 @@ export default function AdminUsersPage() {
                   }
                   required
                 />
+              </label>
+              <label className="split-grid__full">
+                Barangay
+                <select
+                  className="input-field"
+                  value={newUser.barangay}
+                  onChange={(event) =>
+                    setNewUser((prev) => ({ ...prev, barangay: event.target.value }))
+                  }
+                  required
+                >
+                  <option value="">Select barangay</option>
+                  {tibiaoBarangays.map((barangay) => (
+                    <option key={barangay} value={barangay}>
+                      {barangay}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="split-grid__full">
                 Password

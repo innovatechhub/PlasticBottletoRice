@@ -23,9 +23,49 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const roundToTwo = (value) => Math.round(value * 100) / 100;
+const roundToThree = (value) => Math.round(value * 1000) / 1000;
 
 const cloneDeep = (value) => JSON.parse(JSON.stringify(value));
+
+const createEmptyLifetimeStats = () => ({
+  recycledItemCount: 0,
+  totalRecycledWeightKg: 0,
+});
+
+const buildLifetimeStats = (transactions = []) => {
+  const perUser = new Map();
+  let totalItemsRecycled = 0;
+  let totalWeightRecycledKg = 0;
+
+  transactions.forEach((transaction) => {
+    if (transaction?.type !== "bottle") {
+      return;
+    }
+
+    const bottleCount = Math.max(
+      0,
+      Math.floor(toNumber(transaction.bottleDelta ?? transaction.amount, 0))
+    );
+    const weightKg = Math.max(0, roundToThree(toNumber(transaction.kgDelta, 0)));
+
+    totalItemsRecycled += bottleCount;
+    totalWeightRecycledKg = roundToThree(totalWeightRecycledKg + weightKg);
+
+    const current = perUser.get(transaction.userId) || createEmptyLifetimeStats();
+    perUser.set(transaction.userId, {
+      recycledItemCount: current.recycledItemCount + bottleCount,
+      totalRecycledWeightKg: roundToThree(
+        current.totalRecycledWeightKg + weightKg
+      ),
+    });
+  });
+
+  return {
+    perUser,
+    totalItemsRecycled,
+    totalWeightRecycledKg,
+  };
+};
 
 const seedState = () => ({
   users: [
@@ -36,6 +76,8 @@ const seedState = () => ({
       password: REQUIRED_ADMIN_ACCOUNT.password,
       role: REQUIRED_ADMIN_ACCOUNT.role,
       weightKg: 0,
+      recycledItemCount: 0,
+      totalRecycledWeightKg: 0,
       createdAt: now(),
     },
     {
@@ -45,6 +87,8 @@ const seedState = () => ({
       password: REQUIRED_HOUSEHOLD_ACCOUNT.password,
       role: REQUIRED_HOUSEHOLD_ACCOUNT.role,
       weightKg: 0,
+      recycledItemCount: 0,
+      totalRecycledWeightKg: 0,
       createdAt: now(),
     },
   ],
@@ -53,6 +97,8 @@ const seedState = () => ({
   system: {
     riceStock: 0,
     bottleStorage: 0,
+    totalItemsRecycled: 0,
+    totalWeightRecycledKg: 0,
     maxBottleCapacity: 500,
     kgPerBottle: 0.025,
     bins: {
@@ -90,6 +136,30 @@ const toPublicState = (rawState) => {
 
 const normalizeState = (candidateState) => {
   const base = seedState();
+  const transactions = Array.isArray(candidateState?.transactions)
+    ? candidateState.transactions.map((transaction) => ({
+        id: transaction.id || createId("tx"),
+        userId: transaction.userId || "",
+        userName: transaction.userName || "Unknown",
+        type: transaction.type || "system",
+        amount: toNumber(transaction.amount, 0),
+        kgDelta: roundToThree(toNumber(transaction.kgDelta, 0)),
+        riceDeltaKg: roundToThree(toNumber(transaction.riceDeltaKg, 0)),
+        bottleDelta: Math.max(
+          0,
+          Math.floor(
+            toNumber(
+              transaction.bottleDelta ??
+                (transaction.type === "bottle" ? transaction.amount : 0),
+              0
+            )
+          )
+        ),
+        details: transaction.details || "",
+        timestamp: transaction.timestamp || now(),
+      }))
+    : base.transactions;
+  const lifetimeStats = buildLifetimeStats(transactions);
 
   if (!candidateState || typeof candidateState !== "object") {
     return base;
@@ -98,12 +168,34 @@ const normalizeState = (candidateState) => {
   const users = Array.isArray(candidateState.users)
     ? candidateState.users
         .map((user) => ({
+          ...(lifetimeStats.perUser.get(user.id) || createEmptyLifetimeStats()),
           id: user.id || createId("user"),
           name: user.name || "Unnamed Household",
           email: String(user.email || "").toLowerCase(),
           password: user.password || "user123",
           role: user.role === "admin" ? "admin" : "user",
-          weightKg: Math.max(0, toNumber(user.weightKg ?? user.points, 0)),
+          weightKg: Math.max(
+            0,
+            roundToThree(toNumber(user.weightKg ?? user.points, 0))
+          ),
+          recycledItemCount: Math.max(
+            0,
+            Math.floor(
+              toNumber(
+                user.recycledItemCount,
+                lifetimeStats.perUser.get(user.id)?.recycledItemCount ?? 0
+              )
+            )
+          ),
+          totalRecycledWeightKg: Math.max(
+            0,
+            roundToThree(
+              toNumber(
+                user.totalRecycledWeightKg,
+                lifetimeStats.perUser.get(user.id)?.totalRecycledWeightKg ?? 0
+              )
+            )
+          ),
           createdAt: user.createdAt || now(),
         }))
         .filter((user) => user.email)
@@ -128,6 +220,8 @@ const normalizeState = (candidateState) => {
       password: requiredUser.password,
       role: requiredUser.role,
       weightKg: 0,
+      recycledItemCount: 0,
+      totalRecycledWeightKg: 0,
       createdAt: now(),
     });
   };
@@ -142,15 +236,58 @@ const normalizeState = (candidateState) => {
 
   return {
     users,
-    transactions: Array.isArray(candidateState.transactions)
-      ? candidateState.transactions
-      : base.transactions,
+    transactions,
     notifications: Array.isArray(candidateState.notifications)
       ? candidateState.notifications
       : base.notifications,
     system: {
       ...base.system,
       ...(candidateState.system || {}),
+      riceStock: Math.max(
+        0,
+        roundToThree(
+          toNumber(candidateState.system?.riceStock, base.system.riceStock)
+        )
+      ),
+      bottleStorage: Math.max(
+        0,
+        Math.floor(
+          toNumber(candidateState.system?.bottleStorage, base.system.bottleStorage)
+        )
+      ),
+      totalItemsRecycled: Math.max(
+        0,
+        Math.floor(
+          toNumber(
+            candidateState.system?.totalItemsRecycled,
+            lifetimeStats.totalItemsRecycled
+          )
+        )
+      ),
+      totalWeightRecycledKg: Math.max(
+        0,
+        roundToThree(
+          toNumber(
+            candidateState.system?.totalWeightRecycledKg,
+            lifetimeStats.totalWeightRecycledKg
+          )
+        )
+      ),
+      maxBottleCapacity: Math.max(
+        1,
+        Math.floor(
+          toNumber(
+            candidateState.system?.maxBottleCapacity,
+            base.system.maxBottleCapacity
+          )
+        )
+      ),
+      kgPerBottle: Math.max(
+        0.001,
+        roundToThree(
+          toNumber(candidateState.system?.kgPerBottle, base.system.kgPerBottle)
+        )
+      ),
     },
   };
 };
@@ -204,15 +341,33 @@ const appendTransaction = ({
     userId,
     userName,
     type,
-    amount,
-    kgDelta,
-    riceDeltaKg,
-    bottleDelta,
+    amount: toNumber(amount, 0),
+    kgDelta: roundToThree(toNumber(kgDelta, 0)),
+    riceDeltaKg: roundToThree(toNumber(riceDeltaKg, 0)),
+    bottleDelta: Math.max(0, Math.floor(toNumber(bottleDelta, 0))),
     details,
     timestamp: now(),
   };
   state.transactions.unshift(transaction);
   return transaction;
+};
+
+const applyBottleCredit = (user, bottleCount, kgEarned) => {
+  user.weightKg = roundToThree(user.weightKg + kgEarned);
+  user.recycledItemCount = Math.max(
+    0,
+    Math.floor(toNumber(user.recycledItemCount, 0)) + bottleCount
+  );
+  user.totalRecycledWeightKg = roundToThree(
+    toNumber(user.totalRecycledWeightKg, 0) + kgEarned
+  );
+  state.system.totalItemsRecycled = Math.max(
+    0,
+    Math.floor(toNumber(state.system.totalItemsRecycled, 0)) + bottleCount
+  );
+  state.system.totalWeightRecycledKg = roundToThree(
+    toNumber(state.system.totalWeightRecycledKg, 0) + kgEarned
+  );
 };
 
 export const dataStore = {
@@ -289,6 +444,8 @@ export const dataStore = {
       password,
       role: "user",
       weightKg: 0,
+      recycledItemCount: 0,
+      totalRecycledWeightKg: 0,
       createdAt: now(),
     };
 
@@ -344,7 +501,10 @@ export const dataStore = {
     }
 
     if (typeof updates.weightKg !== "undefined") {
-      user.weightKg = Math.max(0, toNumber(updates.weightKg, user.weightKg));
+      user.weightKg = Math.max(
+        0,
+        roundToThree(toNumber(updates.weightKg, user.weightKg))
+      );
     }
 
     emit();
@@ -396,10 +556,12 @@ export const dataStore = {
     }
 
     const count = Math.max(1, Math.floor(toNumber(bottleCount, 1)));
-    const kgEarned = roundToTwo(count * toNumber(state.system.kgPerBottle, 0.025));
+    const kgEarned = roundToThree(
+      count * toNumber(state.system.kgPerBottle, 0.025)
+    );
     const previousStorage = state.system.bottleStorage;
 
-    user.weightKg = roundToTwo(user.weightKg + kgEarned);
+    applyBottleCredit(user, count, kgEarned);
     state.system.bottleStorage = Math.max(0, previousStorage + count);
 
     appendTransaction({
@@ -445,13 +607,13 @@ export const dataStore = {
       return { ok: false, error: "User not found." };
     }
 
-    const kg = roundToTwo(Math.max(0, toNumber(weightKg, 0)));
+    const kg = roundToThree(Math.max(0, toNumber(weightKg, 0)));
     if (kg === 0) {
       return { ok: false, error: "Invalid weight from hardware." };
     }
 
     const previousStorage = state.system.bottleStorage;
-    user.weightKg = roundToTwo(user.weightKg + kg);
+    applyBottleCredit(user, 1, kg);
     state.system.bottleStorage = previousStorage + 1;
 
     appendTransaction({
@@ -488,6 +650,65 @@ export const dataStore = {
     return { ok: true, kgEarned: kg };
   },
 
+  finalizeBottleSession(userId, bottleWeightsKg = [], binId = "hardware") {
+    const user = getUserById(userId);
+    if (!user) {
+      return { ok: false, error: "User not found." };
+    }
+
+    const acceptedWeights = Array.isArray(bottleWeightsKg)
+      ? bottleWeightsKg
+          .map((weight) => roundToThree(Math.max(0, toNumber(weight, 0))))
+          .filter((weight) => weight > 0)
+      : [];
+
+    const bottleCount = acceptedWeights.length;
+    if (bottleCount === 0) {
+      return { ok: false, error: "No accepted bottles to save." };
+    }
+
+    const totalKg = roundToThree(
+      acceptedWeights.reduce((sum, weight) => sum + weight, 0)
+    );
+    const previousStorage = state.system.bottleStorage;
+
+    applyBottleCredit(user, bottleCount, totalKg);
+    state.system.bottleStorage = previousStorage + bottleCount;
+
+    appendTransaction({
+      userId: user.id,
+      userName: user.name,
+      type: "bottle",
+      amount: bottleCount,
+      kgDelta: totalKg,
+      riceDeltaKg: 0,
+      bottleDelta: bottleCount,
+      details: `${bottleCount} bottle(s) via ${binId}. +${totalKg} kg credited on session save.`,
+    });
+
+    appendNotification({
+      title: "Bottle Session Saved",
+      message: `${bottleCount} bottle(s) worth ${totalKg} kg were added to your balance.`,
+      userId: user.id,
+      type: "success",
+    });
+
+    if (
+      previousStorage < state.system.maxBottleCapacity &&
+      state.system.bottleStorage >= state.system.maxBottleCapacity
+    ) {
+      appendNotification({
+        title: "Bottle Storage Full",
+        message: "Bottle storage reached max capacity.",
+        targetRole: "admin",
+        type: "warning",
+      });
+    }
+
+    emit();
+    return { ok: true, kgEarned: totalKg, bottleCount };
+  },
+
   updateBinAssignment(binId, userId, userName) {
     if (!state.system.bins) state.system.bins = {};
     state.system.bins[binId] = { assignedUserId: userId, assignedUserName: userName };
@@ -504,7 +725,7 @@ export const dataStore = {
       };
     }
 
-    const riceKg = roundToTwo(Math.max(0.001, toNumber(kgToRedeem, 0)));
+    const riceKg = roundToThree(Math.max(0.001, toNumber(kgToRedeem, 0)));
 
     if (user.weightKg < riceKg) {
       return {
@@ -513,16 +734,13 @@ export const dataStore = {
       };
     }
 
-    if (state.system.riceStock < riceKg) {
-      return {
-        ok: false,
-        error: "Rice stock is not enough for this redemption.",
-      };
-    }
-
     const previousRice = state.system.riceStock;
-    user.weightKg = roundToTwo(user.weightKg - riceKg);
-    state.system.riceStock = roundToTwo(state.system.riceStock - riceKg);
+    user.weightKg = roundToThree(user.weightKg - riceKg);
+    // Allow redemption to proceed for dispenser/servo testing even when stock is depleted.
+    state.system.riceStock = Math.max(
+      0,
+      roundToThree(state.system.riceStock - riceKg)
+    );
 
     appendTransaction({
       userId: user.id,
@@ -596,7 +814,7 @@ export const dataStore = {
   },
 
   restockRice(amountKg) {
-    const amount = roundToTwo(toNumber(amountKg, 0));
+    const amount = roundToThree(toNumber(amountKg, 0));
     if (amount <= 0) {
       return {
         ok: false,
@@ -604,7 +822,7 @@ export const dataStore = {
       };
     }
 
-    state.system.riceStock = roundToTwo(state.system.riceStock + amount);
+    state.system.riceStock = roundToThree(state.system.riceStock + amount);
 
     appendTransaction({
       userId: "system",

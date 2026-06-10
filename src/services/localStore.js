@@ -177,10 +177,7 @@ const normalizeState = (candidateState) => {
           email: String(user.email || "").toLowerCase(),
           password: user.password || "user123",
           role: user.role === "admin" ? "admin" : "user",
-<<<<<<< HEAD
           barangay: String(user.barangay || "").trim(),
-          weightKg: Math.max(0, toNumber(user.weightKg ?? user.points, 0)),
-=======
           weightKg: Math.max(
             0,
             roundToThree(toNumber(user.weightKg ?? user.points, 0))
@@ -203,7 +200,6 @@ const normalizeState = (candidateState) => {
               )
             )
           ),
->>>>>>> 78b9cd4923617ea5519c761c7d9848a601842b81
           createdAt: user.createdAt || now(),
         }))
         .filter((user) => user.email)

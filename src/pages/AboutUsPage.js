@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import PublicSiteLayout from "../components/PublicSiteLayout";
 
 const smartBinBlocks = [
@@ -41,11 +42,13 @@ const missionVisionBlocks = [
 ];
 
 export default function AboutUsPage() {
+  const navigate = useNavigate();
+
   return (
     <PublicSiteLayout>
       <main>
         <section
-          className="eco-landing__hero"
+          className="eco-landing__hero eco-landing__hero--banner"
           style={{
             backgroundImage: `linear-gradient(180deg, rgba(0, 45, 20, 0.42) 0%, rgba(2, 56, 28, 0.68) 100%), url(${process.env.PUBLIC_URL}/PageUI.png)`,
             backgroundPosition: "center center",
@@ -53,32 +56,36 @@ export default function AboutUsPage() {
             backgroundSize: "cover",
           }}
         >
-          <div className="eco-landing__hero-inner">
-            <div className="eco-landing__hero-copy-panel">
-              <span className="eco-landing__eyebrow">About EcoRice</span>
-              <h1 className="eco-landing__title eco-landing__title--banner">
-                Cultivating Change, One Grain at a Time.
-              </h1>
-              <p className="eco-landing__subtitle eco-landing__subtitle--banner">
-                EcoRice bridges the gap between environmental responsibility and social
-                welfare through innovative circular economy solutions.
-              </p>
-            </div>
-
-            <div className="eco-landing__hero-visual">
-              <div className="eco-landing__hero-card">
-                <img
-                  alt="A vast emerald green rice terrace landscape"
-                  src="https://lh3.googleusercontent.com/aida/AP1WRLvBK-wN9OTq9O_M4ud3h9wM15F1a3UgHp_6j7XrRdDq64JmdJpBt4oCxcqPm0Ezb9tvN0tUA6k_-SefgNYSNMvJyf0vr-e4dZe4oUZl4icbe07FYyvwu44zk0COIepu0H5VeLBsHI1YqmW7GcJpajZG8Y77p2WDftwMy9x62Thzt0g9tS9JMZveKLVzUq4s8jRtNUx0uRh_xK0yDl2NtSc2hqboyDFtAh1mGf6QGQ1re-slo5OEX9YhV0g"
-                />
-                <div className="eco-landing__hero-card-overlay" />
-                <div className="eco-landing__hero-badge">Our Story</div>
+            <div className="eco-landing__hero-banner">
+              <div className="eco-landing__hero-banner-glow" />
+              <div className="eco-landing__hero-banner-icon" aria-hidden="true">
+                <span className="material-symbols-outlined">eco</span>
               </div>
+            <span className="eco-landing__eyebrow">About EcoRice</span>
+            <h1 className="eco-landing__title eco-landing__title--banner">
+              Cultivating Change, One Grain at a Time.
+            </h1>
+            <p className="eco-landing__subtitle eco-landing__subtitle--banner">
+              EcoRice bridges the gap between environmental responsibility and social
+              welfare through innovative circular economy solutions.
+            </p>
+
+            <div className="eco-landing__hero-actions eco-landing__hero-actions--banner">
+              <button
+                type="button"
+                className="eco-landing__btn eco-landing__btn--primary eco-landing__btn--banner-primary"
+                onClick={() => navigate("/login")}
+              >
+                Get Started
+              </button>
+              <a className="eco-landing__btn eco-landing__btn--outline" href="#smartbin">
+                Learn More
+              </a>
             </div>
           </div>
         </section>
 
-        <section className="eco-about-smartbin eco-about-smartbin--light">
+        <section className="eco-about-smartbin eco-about-smartbin--light" id="smartbin">
           <div className="eco-about-smartbin__inner">
             <div className="eco-about-smartbin__grid">
               {smartBinBlocks.slice(0, 2).map((block) => (

@@ -55,8 +55,8 @@ export default function LoginPage() {
               </svg>
             </div>
             <div className="sb-logo-text">
-              <span className="sb-logo-plus">+Tech </span>
-              <span className="sb-logo-name">smartBin</span>
+              <span className="sb-logo-plus">+Eco</span>
+              <span className="sb-logo-name">Rice</span>
             </div>
           </div>
 
@@ -157,7 +157,15 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right: Image Panel ── */}
-      <div className="sb-login-right">
+      <div
+        className="sb-login-right"
+        style={{
+          backgroundImage: `url(${process.env.PUBLIC_URL}/PageUI.png)`,
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+        }}
+      >
         <div className="sb-login-right-overlay" />
         <div className="sb-login-right-content">
           <h2 className="sb-right-title">Join our community of eco-warriors</h2>

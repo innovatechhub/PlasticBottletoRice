@@ -154,15 +154,12 @@ export default function AppLayout({ title, children }) {
 
           <button
             type="button"
-            className="household-profile-btn"
+            className="household-logout-btn"
             onClick={logout}
             title="Logout"
             aria-label="Logout"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="7.5" r="4.2" />
-              <path d="M4 21a8 8 0 0 1 16 0" />
-            </svg>
+            <span>Logout</span>
           </button>
         </header>
         <main className="household-main">{children}</main>

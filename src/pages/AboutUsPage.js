@@ -3,7 +3,7 @@ import PublicSiteLayout from "../components/PublicSiteLayout";
 
 const smartBinBlocks = [
   {
-    title: "What is smartBin?",
+    title: "What is EcoRice?",
     copy:
       "EcoRice is an IoT-based recycling and rewards system designed to tackle plastic waste in Tibiao, Antique. Our goal is to make recycling a habit by making it easy, rewarding, and trackable.",
   },

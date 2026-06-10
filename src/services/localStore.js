@@ -282,14 +282,6 @@ export const dataStore = {
       };
     }
 
-    const emailExists = state.users.some((user) => user.email === email);
-    if (emailExists) {
-      return {
-        ok: false,
-        error: "Email is already used by another account.",
-      };
-    }
-
     const user = {
       id: createId("user"),
       name,
@@ -312,6 +304,7 @@ export const dataStore = {
     return {
       ok: true,
       user: sanitizeUser(user),
+      rawUser: { ...user },
     };
   },
 
@@ -343,15 +336,6 @@ export const dataStore = {
           error: "Email cannot be empty.",
         };
       }
-      const duplicate = state.users.some(
-        (item) => item.id !== userId && item.email === email
-      );
-      if (duplicate) {
-        return {
-          ok: false,
-          error: "Email is already used by another account.",
-        };
-      }
       user.email = email;
     }
 
@@ -367,6 +351,7 @@ export const dataStore = {
     return {
       ok: true,
       user: sanitizeUser(user),
+      rawUser: { ...user },
     };
   },
 
@@ -397,6 +382,7 @@ export const dataStore = {
     emit();
     return {
       ok: true,
+      rawUser: { ...user },
     };
   },
 

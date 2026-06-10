@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { dataStore } from "../services/localStore";
-import { getSyncMode, startCloudSync } from "../services/cloudSync";
+import {
+  deleteHouseholdUserFromFirestore,
+  getSyncMode,
+  saveHouseholdUserToFirestore,
+  startCloudSync,
+} from "../services/cloudSync";
 
 const DataContext = createContext(null);
 
@@ -19,9 +24,66 @@ export function DataProvider({ children }) {
 
   const actions = useMemo(
     () => ({
-      addUser: (payload) => dataStore.addUser(payload),
-      updateUser: (userId, updates) => dataStore.updateUser(userId, updates),
-      deleteUser: (userId) => dataStore.deleteUser(userId),
+      addUser: async (payload) => {
+        const result = dataStore.addUser(payload);
+        if (!result.ok) {
+          return result;
+        }
+
+        const syncResult = await saveHouseholdUserToFirestore(result.rawUser);
+        if (!syncResult.ok) {
+          return {
+            ok: false,
+            error:
+              syncResult.error ||
+              "Household user was created locally but could not be saved to Firestore.",
+          };
+        }
+
+        return result;
+      },
+      updateUser: async (userId, updates) => {
+        const result = dataStore.updateUser(userId, updates);
+        if (!result.ok) {
+          return result;
+        }
+
+        const syncResult = await saveHouseholdUserToFirestore(result.rawUser);
+        if (!syncResult.ok) {
+          return {
+            ok: false,
+            error:
+              syncResult.error ||
+              "Household user was updated locally but could not be saved to Firestore.",
+          };
+        }
+
+        return result;
+      },
+      deleteUser: async (userId) => {
+        const currentUser =
+          dataStore.getRawState().users.find(
+            (user) => user.id === userId && user.role === "user"
+          ) || null;
+        const result = dataStore.deleteUser(userId);
+        if (!result.ok) {
+          return result;
+        }
+
+        if (currentUser) {
+          const syncResult = await deleteHouseholdUserFromFirestore(userId);
+          if (!syncResult.ok) {
+            return {
+              ok: false,
+              error:
+                syncResult.error ||
+                "Household user was deleted locally but could not be removed from Firestore.",
+            };
+          }
+        }
+
+        return result;
+      },
       insertBottle: (userId, bottleCount) =>
         dataStore.insertBottle(userId, bottleCount),
       insertBottleFromHardware: (userId, weightKg, binId) =>

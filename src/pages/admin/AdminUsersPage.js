@@ -37,12 +37,12 @@ export default function AdminUsersPage() {
     });
   };
 
-  const handleCreateUser = (event) => {
+  const handleCreateUser = async (event) => {
     event.preventDefault();
     setError("");
     setStatus("");
 
-    const result = actions.addUser({ ...newUser });
+    const result = await actions.addUser({ ...newUser });
     if (!result.ok) {
       setError(result.error);
       return;
@@ -53,11 +53,11 @@ export default function AdminUsersPage() {
     setShowCreateForm(false);
   };
 
-  const handleSaveUser = (userId) => {
+  const handleSaveUser = async (userId) => {
     setError("");
     setStatus("");
 
-    const result = actions.updateUser(userId, editingForm);
+    const result = await actions.updateUser(userId, editingForm);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -67,7 +67,7 @@ export default function AdminUsersPage() {
     setEditingId("");
   };
 
-  const handleDeleteUser = (userId, name) => {
+  const handleDeleteUser = async (userId, name) => {
     setError("");
     setStatus("");
 
@@ -75,7 +75,7 @@ export default function AdminUsersPage() {
       return;
     }
 
-    const result = actions.deleteUser(userId);
+    const result = await actions.deleteUser(userId);
     if (!result.ok) {
       setError(result.error);
       return;

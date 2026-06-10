@@ -1,9 +1,69 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
+    ".read": false,
+    ".write": false,
+    "household": {
+      ".read": "auth != null",
+      "$householdId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['name', 'email', 'password', 'role', 'weightKg', 'createdAt']) && newData.child('name').isString() && newData.child('name').val() != '' && newData.child('email').isString() && newData.child('email').val() != '' && newData.child('password').isString() && newData.child('password').val() != '' && newData.child('role').val() == 'user' && newData.child('weightKg').isNumber() && newData.child('weightKg').val() >= 0 && newData.child('createdAt').isString() && newData.child('createdAt').val() != '')"
+      }
+    },
+    "users": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['name', 'email', 'password', 'role', 'weightKg', 'createdAt']) && newData.child('name').isString() && newData.child('name').val() != '' && newData.child('email').isString() && newData.child('email').val() != '' && newData.child('password').isString() && newData.child('password').val() != '' && (newData.child('role').val() == 'admin' || newData.child('role').val() == 'user') && newData.child('weightKg').isNumber() && newData.child('weightKg').val() >= 0 && newData.child('createdAt').isString() && newData.child('createdAt').val() != '')"
+      }
+    },
+    "transactions": {
+      ".read": "auth != null",
+      "$transactionId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['userId', 'userName', 'type', 'amount', 'timestamp']) && newData.child('userId').isString() && newData.child('userName').isString() && newData.child('userName').val() != '' && newData.child('type').isString() && newData.child('type').val() != '' && newData.child('amount').isNumber() && newData.child('timestamp').isString() && newData.child('timestamp').val() != '')"
+      }
+    },
+    "notifications": {
+      ".read": "auth != null",
+      "$notificationId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['title', 'message', 'targetRole', 'type', 'createdAt']) && newData.child('title').isString() && newData.child('title').val() != '' && newData.child('message').isString() && newData.child('message').val() != '' && (newData.child('targetRole').val() == 'all' || newData.child('targetRole').val() == 'admin' || newData.child('targetRole').val() == 'user') && newData.child('type').isString() && newData.child('type').val() != '' && newData.child('createdAt').isString() && newData.child('createdAt').val() != '')"
+      }
+    },
+    "system": {
+      ".read": "auth != null",
+      "config": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['riceStock', 'bottleStorage', 'maxBottleCapacity', 'kgPerBottle', 'bins']) && newData.child('riceStock').isNumber() && newData.child('bottleStorage').isNumber() && newData.child('maxBottleCapacity').isNumber() && newData.child('maxBottleCapacity').val() > 0 && newData.child('kgPerBottle').isNumber() && newData.child('kgPerBottle').val() > 0)"
+      }
+    },
+    "pbtr_state": {
+      ".read": "auth != null",
+      "$document": {
+        ".write": "auth != null"
+      }
+    },
     "bin_events": {
-      ".indexOn": ["processed"]
+      ".indexOn": ["processed"],
+      ".read": "auth != null",
+      "$eventId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['binId', 'weightG', 'weightKg', 'timestamp', 'processed']) && newData.child('binId').isString() && newData.child('binId').val() != '' && newData.child('weightG').isNumber() && newData.child('weightKg').isNumber() && newData.child('timestamp').isString() && newData.child('timestamp').val() != '' && newData.child('processed').isBoolean())"
+      }
+    },
+    "bin_commands": {
+      ".read": "auth != null",
+      "$binId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['binId', 'userId', 'userName', 'status', 'requestedAt', 'weightKg']) && newData.child('binId').isString() && newData.child('binId').val() != '' && newData.child('userId').isString() && newData.child('userId').val() != '' && newData.child('userName').isString() && newData.child('userName').val() != '' && newData.child('status').isString() && newData.child('status').val() != '' && newData.child('requestedAt').isString() && newData.child('requestedAt').val() != '' && newData.child('weightKg').isNumber())"
+      }
+    },
+    "rice_commands": {
+      ".read": "auth != null",
+      "$binId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['binId', 'userId', 'userName', 'amountKg', 'status', 'requestedAt']) && newData.child('binId').isString() && newData.child('binId').val() != '' && newData.child('userId').isString() && newData.child('userId').val() != '' && newData.child('userName').isString() && newData.child('userName').val() != '' && newData.child('amountKg').isNumber() && newData.child('status').isString() && newData.child('status').val() != '' && newData.child('requestedAt').isString() && newData.child('requestedAt').val() != '')"
+      }
     }
   }
 }

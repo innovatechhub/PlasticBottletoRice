@@ -1,22 +1,33 @@
 import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  setDoc,
+} from "firebase/firestore";
+import {
   equalTo,
   get,
   onValue,
   orderByChild,
-  query,
+  query as rtdbQuery,
   ref,
-  remove,
   set,
   update,
 } from "firebase/database";
 import { dataStore, normalizeState } from "./localStore";
 import {
   ensureFirebaseSession,
+  firestoreDb,
   realtimeDb,
   isFirebaseConfigured,
 } from "./firebaseClient";
 
 const stableHash = (value) => JSON.stringify(value);
+const HOUSEHOLD_COLLECTION = "household";
+const LEGACY_HOUSEHOLD_PATH = "users";
 
 let started = false;
 let syncMode = "local";
@@ -60,6 +71,15 @@ const objectToSortedArray = (val, sortKey = "createdAt") => {
     );
 };
 
+const docsToSortedArray = (snapshot, sortKey = "createdAt") => {
+  if (!snapshot || snapshot.empty) return [];
+  return snapshot.docs
+    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+    .sort((a, b) =>
+      String(b[sortKey] || "").localeCompare(String(a[sortKey] || ""))
+    );
+};
+
 const setRemoteState = (type, items) => {
   remoteSnapshotState[type] = items;
   if (type !== "system") {
@@ -92,30 +112,63 @@ const applyRemoteToLocal = () => {
   lastSyncedHash = hash;
 };
 
-const deleteMissingDocs = async (path, localIds, remoteIds) => {
+const deleteMissingDocs = async (collectionName, localIds, remoteIds) => {
   const deletes = [];
   remoteIds.forEach((id) => {
     if (!localIds.has(id)) {
-      deletes.push(remove(ref(realtimeDb, `${path}/${id}`)));
+      deletes.push(deleteDoc(doc(firestoreDb, collectionName, id)));
     }
   });
   if (deletes.length > 0) await Promise.all(deletes);
 };
 
 const writeUsers = async (users) => {
+  const householdUsers = users.filter((user) => user.role === "user");
   const localIds = new Set();
-  for (const user of users) {
+  for (const user of householdUsers) {
     localIds.add(user.id);
-    await set(ref(realtimeDb, `users/${user.id}`), user);
+    await setDoc(doc(firestoreDb, HOUSEHOLD_COLLECTION, user.id), user);
   }
-  await deleteMissingDocs("users", localIds, remoteIdSets.users);
+  await deleteMissingDocs(HOUSEHOLD_COLLECTION, localIds, remoteIdSets.users);
 };
+
+export async function saveHouseholdUserToFirestore(user) {
+  if (!firestoreDb) {
+    return { ok: false, error: "Firebase not configured." };
+  }
+
+  try {
+    if (!user || user.role !== "user") {
+      return { ok: false, error: "Invalid household user." };
+    }
+
+    await setDoc(doc(firestoreDb, HOUSEHOLD_COLLECTION, user.id), user);
+    return { ok: true };
+  } catch (error) {
+    console.error("saveHouseholdUserToFirestore error:", error);
+    return { ok: false, error: error.message };
+  }
+}
+
+export async function deleteHouseholdUserFromFirestore(userId) {
+  if (!firestoreDb) {
+    return { ok: false, error: "Firebase not configured." };
+  }
+
+  try {
+    await deleteDoc(doc(firestoreDb, HOUSEHOLD_COLLECTION, userId));
+    return { ok: true };
+  } catch (error) {
+    console.error("deleteHouseholdUserFromFirestore error:", error);
+    return { ok: false, error: error.message };
+  }
+}
 
 const writeTransactions = async (transactions) => {
   const localIds = new Set();
   for (const tx of transactions) {
     localIds.add(tx.id);
-    await set(ref(realtimeDb, `transactions/${tx.id}`), tx);
+    await setDoc(doc(firestoreDb, "transactions", tx.id), tx);
   }
   await deleteMissingDocs("transactions", localIds, remoteIdSets.transactions);
 };
@@ -124,7 +177,7 @@ const writeNotifications = async (notifications) => {
   const localIds = new Set();
   for (const notification of notifications) {
     localIds.add(notification.id);
-    await set(ref(realtimeDb, `notifications/${notification.id}`), notification);
+    await setDoc(doc(firestoreDb, "notifications", notification.id), notification);
   }
   await deleteMissingDocs(
     "notifications",
@@ -134,7 +187,7 @@ const writeNotifications = async (notifications) => {
 };
 
 const writeSystemConfig = async (systemConfig) => {
-  await set(ref(realtimeDb, "system/config"), systemConfig);
+  await setDoc(doc(firestoreDb, "system", "config"), systemConfig);
 };
 
 const pushCollections = async (rawState) => {
@@ -157,37 +210,76 @@ const queuePush = (rawState) => {
     });
 };
 
-const bootstrapRemote = async () => {
+const readLegacyRealtimeState = async () => {
+  if (!realtimeDb) return null;
+
   const [usersSnap, txSnap, notifSnap, sysSnap] = await Promise.all([
-    get(ref(realtimeDb, "users")),
+    get(ref(realtimeDb, LEGACY_HOUSEHOLD_PATH)),
     get(ref(realtimeDb, "transactions")),
     get(ref(realtimeDb, "notifications")),
     get(ref(realtimeDb, "system/config")),
   ]);
 
-  setRemoteState("users", objectToSortedArray(usersSnap.val(), "createdAt"));
-  setRemoteState("transactions", objectToSortedArray(txSnap.val(), "timestamp"));
-  setRemoteState(
-    "notifications",
-    objectToSortedArray(notifSnap.val(), "createdAt")
+  const users = objectToSortedArray(usersSnap.val(), "createdAt").filter(
+    (user) => user.role === "user"
   );
-  setRemoteState("system", sysSnap.exists() ? sysSnap.val() : null);
+  const transactions = objectToSortedArray(txSnap.val(), "timestamp");
+  const notifications = objectToSortedArray(notifSnap.val(), "createdAt");
+  const system = sysSnap.exists() ? sysSnap.val() : null;
 
-  const hasRemoteData =
-    usersSnap.exists() ||
-    txSnap.exists() ||
-    notifSnap.exists() ||
-    sysSnap.exists();
+  return {
+    users,
+    transactions,
+    notifications,
+    system,
+    hasData:
+      usersSnap.exists() || txSnap.exists() || notifSnap.exists() || sysSnap.exists(),
+  };
+};
 
-  if (hasRemoteData) {
+const bootstrapRemote = async () => {
+  const [householdSnap, txSnap, notifSnap, sysSnap] = await Promise.all([
+    getDocs(collection(firestoreDb, HOUSEHOLD_COLLECTION)),
+    getDocs(collection(firestoreDb, "transactions")),
+    getDocs(collection(firestoreDb, "notifications")),
+    getDoc(doc(firestoreDb, "system", "config")),
+  ]);
+
+  setRemoteState("users", docsToSortedArray(householdSnap, "createdAt"));
+  setRemoteState("transactions", docsToSortedArray(txSnap, "timestamp"));
+  setRemoteState("notifications", docsToSortedArray(notifSnap, "createdAt"));
+  setRemoteState("system", sysSnap.exists() ? sysSnap.data() : null);
+
+  const hasFirestoreData =
+    !householdSnap.empty || !txSnap.empty || !notifSnap.empty || sysSnap.exists();
+
+  if (hasFirestoreData) {
     applyRemoteToLocal();
-  } else {
-    const cleanInitialState = normalizeState({});
-    applyingRemote = true;
-    dataStore.replaceRawState(cleanInitialState);
-    applyingRemote = false;
-    await pushCollections(cleanInitialState);
+    return;
   }
+
+  const legacyState = await readLegacyRealtimeState();
+  if (legacyState?.hasData) {
+    const normalized = normalizeState(legacyState);
+    setRemoteState("users", normalized.users.filter((user) => user.role === "user"));
+    setRemoteState("transactions", normalized.transactions);
+    setRemoteState("notifications", normalized.notifications);
+    setRemoteState("system", normalized.system);
+
+    applyingRemote = true;
+    dataStore.replaceRawState(normalized);
+    applyingRemote = false;
+    lastSyncedHash = "";
+    await pushCollections(normalized);
+    return;
+  }
+
+  const cleanInitialState = normalizeState({});
+  applyingRemote = true;
+  dataStore.replaceRawState(cleanInitialState);
+  applyingRemote = false;
+  lastSyncedHash = "";
+  await pushCollections(cleanInitialState);
 };
 
 const processBinEvent = async (event) => {
@@ -199,7 +291,7 @@ const processBinEvent = async (event) => {
     const bin = rawState.system.bins?.[event.binId];
 
     if (!bin?.assignedUserId) {
-      console.warn(`bin_event ignored — no user assigned to bin "${event.binId}"`);
+      console.warn(`bin_event ignored - no user assigned to bin "${event.binId}"`);
       return;
     }
 
@@ -219,10 +311,10 @@ const processBinEvent = async (event) => {
 };
 
 const startRemoteListeners = () => {
-  onValue(
-    ref(realtimeDb, "users"),
+  onSnapshot(
+    collection(firestoreDb, HOUSEHOLD_COLLECTION),
     (snapshot) => {
-      setRemoteState("users", objectToSortedArray(snapshot.val(), "createdAt"));
+      setRemoteState("users", docsToSortedArray(snapshot, "createdAt"));
       applyRemoteToLocal();
     },
     () => {
@@ -230,13 +322,10 @@ const startRemoteListeners = () => {
     }
   );
 
-  onValue(
-    ref(realtimeDb, "transactions"),
+  onSnapshot(
+    collection(firestoreDb, "transactions"),
     (snapshot) => {
-      setRemoteState(
-        "transactions",
-        objectToSortedArray(snapshot.val(), "timestamp")
-      );
+      setRemoteState("transactions", docsToSortedArray(snapshot, "timestamp"));
       applyRemoteToLocal();
     },
     () => {
@@ -244,13 +333,10 @@ const startRemoteListeners = () => {
     }
   );
 
-  onValue(
-    ref(realtimeDb, "notifications"),
+  onSnapshot(
+    collection(firestoreDb, "notifications"),
     (snapshot) => {
-      setRemoteState(
-        "notifications",
-        objectToSortedArray(snapshot.val(), "createdAt")
-      );
+      setRemoteState("notifications", docsToSortedArray(snapshot, "createdAt"));
       applyRemoteToLocal();
     },
     () => {
@@ -258,10 +344,10 @@ const startRemoteListeners = () => {
     }
   );
 
-  onValue(
-    ref(realtimeDb, "system/config"),
+  onSnapshot(
+    doc(firestoreDb, "system", "config"),
     (snapshot) => {
-      setRemoteState("system", snapshot.exists() ? snapshot.val() : null);
+      setRemoteState("system", snapshot.exists() ? snapshot.data() : null);
       applyRemoteToLocal();
     },
     () => {
@@ -269,55 +355,57 @@ const startRemoteListeners = () => {
     }
   );
 
-  // Listen for new unprocessed bin events from hardware bins
-  onValue(
-    query(
-      ref(realtimeDb, "bin_events"),
-      orderByChild("processed"),
-      equalTo(false)
-    ),
-    (snapshot) => {
-      if (!snapshot.exists()) return;
-      snapshot.forEach((child) => {
-        const event = { id: child.key, ...child.val() };
-        processBinEvent(event);
-      });
-    },
-    () => {}
-  );
+  // Listen for new unprocessed bin events from hardware bins.
+  if (realtimeDb) {
+    onValue(
+      rtdbQuery(
+        ref(realtimeDb, "bin_events"),
+        orderByChild("processed"),
+        equalTo(false)
+      ),
+      (snapshot) => {
+        if (!snapshot.exists()) return;
+        snapshot.forEach((child) => {
+          const event = { id: child.key, ...child.val() };
+          processBinEvent(event);
+        });
+      },
+      () => {}
+    );
 
-  // Listen for bin_commands status changes (written by ESP32 after bottle detected)
-  onValue(
-    ref(realtimeDb, "bin_commands"),
-    (snapshot) => {
-      if (!snapshot.exists()) return;
-      snapshot.forEach((child) => {
-        const data = { id: child.key, ...child.val() };
+    // Listen for bin_commands status changes written by ESP32.
+    onValue(
+      ref(realtimeDb, "bin_commands"),
+      (snapshot) => {
+        if (!snapshot.exists()) return;
+        snapshot.forEach((child) => {
+          const data = { id: child.key, ...child.val() };
 
-        if (data.status === "done" && data.userId && data.weightKg > 0) {
-          const key = `${data.id}|${data.requestedAt}`;
-          if (processedBinCommands.has(key)) return;
-          processedBinCommands.add(key);
+          if (data.status === "done" && data.userId && data.weightKg > 0) {
+            const key = `${data.id}|${data.requestedAt}`;
+            if (processedBinCommands.has(key)) return;
+            processedBinCommands.add(key);
 
-          dataStore.insertBottleFromHardware(
-            data.userId,
-            data.weightKg,
-            data.binId || data.id
-          );
+            dataStore.insertBottleFromHardware(
+              data.userId,
+              data.weightKg,
+              data.binId || data.id
+            );
 
-          update(ref(realtimeDb, `bin_commands/${data.id}`), {
-            status: "idle",
-            weightKg: 0,
-          }).catch(() => {});
-        }
-      });
-    },
-    () => {}
-  );
+            update(ref(realtimeDb, `bin_commands/${data.id}`), {
+              status: "idle",
+              weightKg: 0,
+            }).catch(() => {});
+          }
+        });
+      },
+      () => {}
+    );
+  }
 };
 
 export function startCloudSync() {
-  if (started || !isFirebaseConfigured || !realtimeDb) {
+  if (started || !isFirebaseConfigured || !firestoreDb) {
     return;
   }
   started = true;
@@ -355,7 +443,14 @@ export async function writeBinCommand(binId, userId, userName) {
     return { ok: false, error: "Firebase not configured." };
   }
   try {
-    await ensureFirebaseSession();
+    const sessionReady = await ensureFirebaseSession();
+    if (!sessionReady) {
+      return {
+        ok: false,
+        error:
+          "Firebase sign-in failed. Enable anonymous authentication before sending bin commands.",
+      };
+    }
     await set(ref(realtimeDb, `bin_commands/${binId}`), {
       binId,
       userId,
@@ -374,6 +469,14 @@ export async function writeBinCommand(binId, userId, userName) {
 export async function cancelBinCommand(binId) {
   if (!realtimeDb) return { ok: false };
   try {
+    const sessionReady = await ensureFirebaseSession();
+    if (!sessionReady) {
+      return {
+        ok: false,
+        error:
+          "Firebase sign-in failed. Enable anonymous authentication before canceling bin commands.",
+      };
+    }
     await update(ref(realtimeDb, `bin_commands/${binId}`), { status: "idle" });
     return { ok: true };
   } catch {
@@ -388,7 +491,14 @@ export async function writeRiceCommand(binId, userId, userName, amountKg) {
     return { ok: false, error: "Firebase not configured." };
   }
   try {
-    await ensureFirebaseSession();
+    const sessionReady = await ensureFirebaseSession();
+    if (!sessionReady) {
+      return {
+        ok: false,
+        error:
+          "Firebase sign-in failed. Enable anonymous authentication before sending rice commands.",
+      };
+    }
     await set(ref(realtimeDb, `rice_commands/${binId}`), {
       binId,
       userId,

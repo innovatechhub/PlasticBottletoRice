@@ -72,11 +72,11 @@ export default function AdminUserViewPage() {
     setEditOpen(true);
   }, [household]);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     setEditError("");
     setEditStatus("");
-    const result = actions.updateUser(userId, editForm);
+    const result = await actions.updateUser(userId, editForm);
     if (!result.ok) {
       setEditError(result.error);
       return;

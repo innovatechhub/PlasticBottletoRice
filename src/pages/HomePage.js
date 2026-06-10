@@ -37,7 +37,16 @@ export default function HomePage() {
   return (
     <PublicSiteLayout>
       <main>
-        <section className="eco-landing__hero eco-landing__hero--banner" id="home">
+        <section
+          className="eco-landing__hero eco-landing__hero--banner"
+          id="home"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(0, 45, 20, 0.42) 0%, rgba(2, 56, 28, 0.68) 100%), url(${process.env.PUBLIC_URL}/PageUI.png)`,
+            backgroundPosition: "center center",
+            backgroundRepeat: "no-repeat",
+            backgroundSize: "cover",
+          }}
+        >
           <div className="eco-landing__hero-banner">
             <div className="eco-landing__hero-banner-glow" />
             <div className="eco-landing__hero-banner-icon" aria-hidden="true">
@@ -45,8 +54,9 @@ export default function HomePage() {
             </div>
             <h1 className="eco-landing__title eco-landing__title--banner">
               <span className="eco-landing__title-plus">+Eco</span>{" "}
-              <span className="eco-landing__title-main">Rice</span>{" "}
-              <span className="eco-landing__title-accent">Bottle</span>
+              <span className="eco-landing__title-main">Bottle</span>{" "}
+              <span className="eco-landing__title-accent">For</span>{" "}
+              <span className="eco-landing__title-plus">Rice</span>{" "}
             </h1>
             <p className="eco-landing__subtitle eco-landing__subtitle--banner">
               Encouraging Recycling Through <strong>Technology</strong> &amp;{" "}

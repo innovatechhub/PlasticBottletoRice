@@ -230,10 +230,7 @@
   padding: 0;
   display: grid;
   place-items: center;
-  background:
-    linear-gradient(180deg, rgba(0, 45, 20, 0.42) 0%, rgba(2, 56, 28, 0.68) 100%),
-    url("https://lh3.googleusercontent.com/aida/AP1WRLuj0WsEYmfWBHOyhOmD_VSo_8NFzJDtc3VnW-bSBvlEoUTM_wJgPawXOGYPCydzN0iFBLOfJ3ewQP9Mvahg9cgTF2jgQ3_83dpFInBQEskFuHI3JbLMRkHMHQWih9OisgNAbwvWUWBgj0N3dBr7__nuL85k77-wo8osdos4ui1i114bu8rfdQvibYE1PTSJsZLlnTUKs-KNzejWnh0-Bf7qlN5MEqodLhDPypwUP8gwHYMHDAFva7ooIJg")
-      center center / cover no-repeat;
+  background: linear-gradient(180deg, rgba(0, 45, 20, 0.42) 0%, rgba(2, 56, 28, 0.68) 100%);
 }
 
 .eco-landing__hero::before,

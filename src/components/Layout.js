@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../app/AuthContext";
 import NotificationBell from "./NotificationBell";
 
@@ -91,42 +91,66 @@ function MenuIcon({ name, className = "" }) {
 
 export default function AppLayout({ title, children }) {
   const { currentUser, logout } = useAuth();
+  const location = useLocation();
   const isUser = currentUser?.role === "user";
   const links = currentUser?.role === "admin" ? adminLinks : userLinks;
+  const isHomeRoute = isUser && location.pathname === "/user/home";
+  const isRewardsRoute = isUser && location.pathname === "/user/redeem";
+  const hideUserNav = isHomeRoute || isRewardsRoute;
 
   const visibleLinks = useMemo(() => links, [links]);
 
   if (isUser) {
     return (
-      <div className="household-shell">
-        <header className="household-nav">
+      <div
+        className="household-shell"
+        style={{
+          backgroundImage: `url(${process.env.PUBLIC_URL}/PageUI.png)`,
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+        }}
+      >
+        <header
+          className={`household-nav${isRewardsRoute ? " household-nav--rewards" : ""}`}
+          style={isHomeRoute ? { gridTemplateColumns: "1fr auto" } : undefined}
+        >
           <Link className="household-brand" to="/user/home">
             <span className="household-brand-plus">+</span>
-            <span>Tech smart</span>
-            <span className="household-brand-accent">Bin</span>
+            <span>Eco</span>
+            <span className="household-brand-accent">Rice</span>
           </Link>
 
-          <nav className="household-nav-links" aria-label="Household navigation">
-            <NavLink
-              to="/user/home"
-              className={({ isActive }) =>
-                isActive ? "household-nav-link active" : "household-nav-link"
-              }
-            >
-              Home
-            </NavLink>
-            <Link className="household-nav-link" to="/user/home#about">
-              About Us
+          {isRewardsRoute ? (
+            <Link className="household-back-btn" to="/user/home" aria-label="Back to home">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              <span>Back</span>
             </Link>
-            <NavLink
-              to="/user/redeem"
-              className={({ isActive }) =>
-                isActive ? "household-nav-link active" : "household-nav-link"
-              }
-            >
-              Rewards
-            </NavLink>
-          </nav>
+          ) : !hideUserNav ? (
+            <nav className="household-nav-links" aria-label="Household navigation">
+              <NavLink
+                to="/user/home"
+                className={({ isActive }) =>
+                  isActive ? "household-nav-link active" : "household-nav-link"
+                }
+              >
+                Home
+              </NavLink>
+              <Link className="household-nav-link" to="/user/home#about">
+                About Us
+              </Link>
+              <NavLink
+                to="/user/redeem"
+                className={({ isActive }) =>
+                  isActive ? "household-nav-link active" : "household-nav-link"
+                }
+              >
+                Rewards
+              </NavLink>
+            </nav>
+          ) : null}
 
           <button
             type="button"

@@ -226,7 +226,15 @@ export default function UserHomePage() {
 
   return (
     <div className="household-home">
-      <section className="portal-hero">
+      <section
+        className="portal-hero"
+        style={{
+          backgroundImage: `url(${process.env.PUBLIC_URL}/PageUI.png)`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
         <div className="portal-hero-overlay" />
         <div className="portal-hero-content">
           <h1>

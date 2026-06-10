@@ -49,41 +49,6 @@ export default function PublicSiteLayout({ children }) {
       </header>
 
       {children}
-
-      <footer className="eco-landing__footer">
-        <div className="eco-landing__footer-inner">
-          <div className="eco-landing__footer-brand">
-            <strong>EcoRice</strong>
-            <span>
-              2024 EcoRice Initiative. Cultivating a cleaner planet, one grain at a time.
-            </span>
-          </div>
-
-          <div className="eco-landing__footer-links">
-            <Link className="eco-landing__footer-link" to="/rewards">
-              Sustainability Report
-            </Link>
-            <Link className="eco-landing__footer-link" to="/rewards">
-              Community Impact
-            </Link>
-            <Link className="eco-landing__footer-link" to="/about-us">
-              Privacy Policy
-            </Link>
-            <Link className="eco-landing__footer-link" to="/about-us">
-              Terms of Service
-            </Link>
-          </div>
-
-          <div className="eco-landing__footer-icons" aria-label="Social links">
-            <Link className="eco-landing__icon-badge" to="/" aria-label="Global">
-              <span className="material-symbols-outlined">public</span>
-            </Link>
-            <Link className="eco-landing__icon-badge" to="/about-us" aria-label="Volunteer">
-              <span className="material-symbols-outlined">volunteer_activism</span>
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

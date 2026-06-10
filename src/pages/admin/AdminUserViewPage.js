@@ -14,13 +14,6 @@ const formatDateTime = (ts) =>
     minute: "2-digit",
   });
 
-const formatDate = (ts) =>
-  new Date(ts).toLocaleDateString([], {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
 function toCreditLog(log) {
   if (log.type === "bottle") {
     return `Inserted ${log.amount} bottle(s) — +${Number(log.kgDelta ?? 0).toFixed(3)} kg earned`;
@@ -31,12 +24,19 @@ function toCreditLog(log) {
 export default function AdminUserViewPage() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const { users, transactions, actions } = useData();
+  const { users, transactions, system, actions } = useData();
 
   const household = useMemo(
     () => users.find((u) => u.id === userId && u.role === "user") || null,
     [users, userId]
   );
+
+  const assignedBinIds = useMemo(() => {
+    if (!userId) return [];
+    return Object.entries(system?.bins || {})
+      .filter(([, bin]) => bin?.assignedUserId === userId)
+      .map(([binId]) => binId);
+  }, [system, userId]);
 
   const logs = useMemo(() => {
     if (!userId) return [];
@@ -167,8 +167,12 @@ export default function AdminUserViewPage() {
                 <dd><strong>{(household.weightKg ?? 0).toFixed(3)} kg</strong></dd>
               </div>
               <div className="hv-info-row">
-                <dt>Member since</dt>
-                <dd>{formatDate(household.createdAt)}</dd>
+                <dt>Bin ID</dt>
+                <dd>{assignedBinIds.length > 0 ? assignedBinIds.join(", ") : "Unassigned"}</dd>
+              </div>
+              <div className="hv-info-row">
+                <dt>createdAt</dt>
+                <dd className="hv-id-chip">{household.createdAt}</dd>
               </div>
               <div className="hv-info-row">
                 <dt>Household ID</dt>

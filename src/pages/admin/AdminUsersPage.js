@@ -88,58 +88,15 @@ export default function AdminUsersPage() {
     <div className="stack">
       <section className="card">
         <div className="row-between">
-          <h2 className="card-title">Create Household Account</h2>
+          <h2 className="card-title">Household Management</h2>
           <button
             type="button"
             className="btn-primary"
-            onClick={() => setShowCreateForm((value) => !value)}
+            onClick={() => setShowCreateForm(true)}
           >
-            {showCreateForm ? "Hide Form" : "Add Household User"}
+            Add Household
           </button>
         </div>
-
-        {showCreateForm ? (
-          <form className="split-grid" onSubmit={handleCreateUser}>
-            <label>
-              Name
-              <input
-                className="input-field"
-                value={newUser.name}
-                onChange={(event) =>
-                  setNewUser((prev) => ({ ...prev, name: event.target.value }))
-                }
-                required
-              />
-            </label>
-            <label>
-              Email
-              <input
-                className="input-field"
-                type="email"
-                value={newUser.email}
-                onChange={(event) =>
-                  setNewUser((prev) => ({ ...prev, email: event.target.value }))
-                }
-                required
-              />
-            </label>
-            <label>
-              Password
-              <input
-                className="input-field"
-                type="text"
-                value={newUser.password}
-                onChange={(event) =>
-                  setNewUser((prev) => ({ ...prev, password: event.target.value }))
-                }
-                required
-              />
-            </label>
-            <button className="btn-primary" type="submit">
-              Save Household User
-            </button>
-          </form>
-        ) : null}
 
         {status ? <p className="success-text">{status}</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
@@ -267,6 +224,76 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </section>
+
+      {showCreateForm ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => setShowCreateForm(false)}
+        >
+          <div
+            className="modal-card household-create-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="household-create-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 className="card-title" id="household-create-title">
+                Create Household Account
+              </h2>
+              <button
+                type="button"
+                className="outline-btn"
+                onClick={() => setShowCreateForm(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="split-grid" onSubmit={handleCreateUser}>
+              <label>
+                Name
+                <input
+                  className="input-field"
+                  value={newUser.name}
+                  onChange={(event) =>
+                    setNewUser((prev) => ({ ...prev, name: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  className="input-field"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(event) =>
+                    setNewUser((prev) => ({ ...prev, email: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+              <label className="split-grid__full">
+                Password
+                <input
+                  className="input-field"
+                  type="text"
+                  value={newUser.password}
+                  onChange={(event) =>
+                    setNewUser((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+              <button className="btn-primary split-grid__full" type="submit">
+                Save Household
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
     </div>
   );

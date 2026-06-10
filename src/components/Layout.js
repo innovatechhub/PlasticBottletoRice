@@ -7,8 +7,8 @@ const adminLinks = [
   { to: "/admin/dashboard", label: "Home", icon: "home" },
   {
     to: "/admin/users",
-    label: "User Management",
-    mobileLabel: "Users",
+    label: "Household",
+    mobileLabel: "Household",
     icon: "users",
   },
   { to: "/admin/logs", label: "Logs", icon: "analytics" },
@@ -154,15 +154,12 @@ export default function AppLayout({ title, children }) {
 
           <button
             type="button"
-            className="household-profile-btn"
+            className="household-logout-btn"
             onClick={logout}
             title="Logout"
             aria-label="Logout"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="7.5" r="4.2" />
-              <path d="M4 21a8 8 0 0 1 16 0" />
-            </svg>
+            <span>Logout</span>
           </button>
         </header>
         <main className="household-main">{children}</main>
@@ -182,7 +179,7 @@ export default function AppLayout({ title, children }) {
               <path d="M9 6V4h6v2" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
           </div>
-          <span className="adm-sidebar-brand-text">smartBin <span className="adm-sidebar-brand-role">Admin</span></span>
+          <span className="adm-sidebar-brand-text">EcoRice <span className="adm-sidebar-brand-role">Admin</span></span>
         </div>
 
         <p className="adm-sidebar-section-label">MAIN MENU</p>
@@ -215,7 +212,6 @@ export default function AppLayout({ title, children }) {
       <div className="main-panel adm-main-panel">
         <header className="top-bar">
           <div>
-            <p className="muted-text">Unified Login Session</p>
             <h1>{title}</h1>
           </div>
           <div className="top-actions">

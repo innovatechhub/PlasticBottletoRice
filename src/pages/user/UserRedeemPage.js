@@ -26,8 +26,8 @@ export default function UserRedeemPage() {
 
   const estimatedRice = useMemo(() => Number(kgToRedeem || 0), [kgToRedeem]);
   const redeemOptions = [
-    { value: 0.5, label: "500 grams"},
-    { value: 1, label: "1000 grams"},
+    { value: 0.5, label: "500 grams" },
+    { value: 1, label: "1000 grams" },
   ];
 
   const availableBins = useMemo(
@@ -167,7 +167,7 @@ export default function UserRedeemPage() {
               >
                 {redeemOptions.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label} - {option.note}
+                    {option.label}
                   </option>
                 ))}
               </select>

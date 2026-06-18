@@ -105,7 +105,7 @@ function AppRoutes() {
         path="/admin/users"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AppLayout title="User Management">
+            <AppLayout title="Household Management">
               <AdminUsersPage />
             </AppLayout>
           </ProtectedRoute>

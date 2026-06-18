@@ -118,7 +118,7 @@ export default function AdminUserViewPage() {
       <div className="adm-shell">
         <div className="hv-not-found">
           <p>Household not found.</p>
-          <Link to="/admin/users" className="hv-back-link">← Back to User Management</Link>
+          <Link to="/admin/users" className="hv-back-link">← Back to Household Management</Link>
         </div>
       </div>
     );

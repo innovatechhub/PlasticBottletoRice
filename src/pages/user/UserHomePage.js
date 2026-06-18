@@ -69,12 +69,14 @@ export default function UserHomePage() {
   const [selectedBinId, setSelectedBinId] = useState("");
   const [insertStep, setInsertStep] = useState("idle");
   const [insertError, setInsertError] = useState("");
+  const [insertNotice, setInsertNotice] = useState("");
   const [timerSeconds, setTimerSeconds] = useState(SESSION_SECONDS);
   const [sessionBottles, setSessionBottles] = useState([]);
   const [sessionSaved, setSessionSaved] = useState(false);
 
   const unsubRef = useRef(null);
   const lastAcceptedAtRef = useRef("");
+  const lastValidationAtRef = useRef("");
   const sessionInfoRef = useRef({ binId: "", userId: "", userName: "" });
 
   useEffect(() => {
@@ -123,10 +125,24 @@ export default function UserHomePage() {
       ref(realtimeDb, `bin_commands/${binId}`),
       (snapshot) => {
         if (!snapshot.exists()) return;
-        const { status, lastWeightKg, lastAcceptedAt } = snapshot.val();
+        const {
+          status,
+          lastWeightKg,
+          lastAcceptedAt,
+          lastValidationStatus,
+          lastValidationMessage,
+          lastValidationAt,
+        } = snapshot.val();
 
         if (status === "active") {
           setInsertStep("active");
+          if (lastValidationStatus === "rejected" && lastValidationAt && lastValidationAt !== lastValidationAtRef.current) {
+            setInsertNotice(lastValidationMessage || "Bottle not accepted. Please try again.");
+            lastValidationAtRef.current = lastValidationAt;
+          } else if (lastValidationStatus && lastValidationStatus !== "rejected") {
+            setInsertNotice("");
+          }
+
           if (lastAcceptedAt && lastAcceptedAt !== lastAcceptedAtRef.current) {
             const kg = Number(lastWeightKg || 0);
             if (kg > 0) {
@@ -134,6 +150,7 @@ export default function UserHomePage() {
               setTimerSeconds(SESSION_SECONDS);
             }
             lastAcceptedAtRef.current = lastAcceptedAt;
+            setInsertNotice("");
           }
           return;
         }
@@ -181,8 +198,10 @@ export default function UserHomePage() {
     setSelectedBinId(binId);
     setSessionBottles([]);
     lastAcceptedAtRef.current = "";
+    lastValidationAtRef.current = "";
     setSessionSaved(false);
     setInsertError("");
+    setInsertNotice("");
     setBinModalOpen(false);
     setSessionOpen(true);
     setInsertStep("waiting");
@@ -246,8 +265,10 @@ export default function UserHomePage() {
     setTimerSeconds(SESSION_SECONDS);
     setSessionBottles([]);
     lastAcceptedAtRef.current = "";
+    lastValidationAtRef.current = "";
     setSessionSaved(false);
     setSessionOpen(false);
+    setInsertNotice("");
   };
 
   const sessionBottleCount = sessionBottles.length;
@@ -424,6 +445,8 @@ export default function UserHomePage() {
                   {insertStep === "active" ? `Drop bottles into bin ${selectedBinId}` : null}
                   {insertStep === "error" ? insertError || "The bin session failed." : null}
                 </p>
+
+                {insertNotice ? <span className="portal-session-validation">{insertNotice}</span> : null}
 
                 {sessionBottleCount > 0 ? (
                   <dl className="portal-session-stats">

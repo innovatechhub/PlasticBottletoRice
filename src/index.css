@@ -2230,6 +2230,17 @@ th {
   font-size: 0.9rem;
 }
 
+.portal-session-validation {
+  color: #b42318;
+  background: #fff1f0;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .portal-modal-actions {
   display: flex;
   justify-content: flex-end;

@@ -15,6 +15,7 @@ export default function AdminUsersPage() {
   const [newUser, setNewUser] = useState(emptyNewUser);
   const [editingId, setEditingId] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [editingForm, setEditingForm] = useState({
     name: "",
     email: "",
@@ -28,6 +29,27 @@ export default function AdminUsersPage() {
     () => users.filter((user) => user.role === "user"),
     [users]
   );
+
+  const filteredHouseholdUsers = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) {
+      return householdUsers;
+    }
+
+    return householdUsers.filter((user) => {
+      const haystack = [
+        user.name,
+        user.email,
+        user.barangay,
+        user.id,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [householdUsers, searchTerm]);
 
   const startEdit = (user) => {
     setEditingId(user.id);
@@ -106,7 +128,22 @@ export default function AdminUsersPage() {
       </section>
 
       <section className="card">
-        <h2 className="card-title">Manage Users</h2>
+        <div className="row-between">
+          <h2 className="card-title">Household Accounts</h2>
+          <input
+            className="input-field"
+            style={{ maxWidth: "320px" }}
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search households"
+            aria-label="Search households"
+          />
+        </div>
+        <p className="muted-text" style={{ marginTop: "8px" }}>
+          Showing {filteredHouseholdUsers.length} of {householdUsers.length} household
+          {householdUsers.length === 1 ? "" : "s"}.
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -120,7 +157,14 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {householdUsers.map((user) => {
+              {filteredHouseholdUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="muted-cell">
+                    No households match your search.
+                  </td>
+                </tr>
+              ) : (
+                filteredHouseholdUsers.map((user) => {
                 const isEditing = editingId === user.id;
                 return (
                   <tr key={user.id}>
@@ -247,7 +291,8 @@ export default function AdminUsersPage() {
                     </td>
                   </tr>
                 );
-              })}
+                })
+              )}
             </tbody>
           </table>
         </div>

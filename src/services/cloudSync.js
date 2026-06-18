@@ -447,6 +447,9 @@ export async function writeBinCommand(binId, userId, userName) {
       lastWeightKg: 0,
       acceptedCount: 0,
       lastAcceptedAt: "",
+      lastValidationStatus: "ready",
+      lastValidationMessage: "",
+      lastValidationAt: "",
     });
     return { ok: true };
   } catch (err) {

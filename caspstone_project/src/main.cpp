@@ -168,9 +168,12 @@ BinCommand checkBinCommand()
 bool patchBinCommand(const char* status,
                      float lastWeightKg = -1.0f,
                      int acceptedCount = -1,
-                     const String& lastAcceptedAt = "")
+                     const String& lastAcceptedAt = "",
+                     const String& lastValidationStatus = "",
+                     const String& lastValidationMessage = "",
+                     const String& lastValidationAt = "")
 {
-  StaticJsonDocument<256> body;
+  StaticJsonDocument<384> body;
   body["status"] = status;
   if (lastWeightKg >= 0.0f) {
     body["weightKg"] = lastWeightKg;
@@ -178,6 +181,9 @@ bool patchBinCommand(const char* status,
   }
   if (acceptedCount >= 0) body["acceptedCount"] = acceptedCount;
   if (lastAcceptedAt.length() > 0) body["lastAcceptedAt"] = lastAcceptedAt;
+  if (lastValidationStatus.length() > 0) body["lastValidationStatus"] = lastValidationStatus;
+  if (lastValidationMessage.length() > 0) body["lastValidationMessage"] = lastValidationMessage;
+  if (lastValidationAt.length() > 0) body["lastValidationAt"] = lastValidationAt;
 
   String s;
   serializeJson(body, s);
@@ -356,7 +362,7 @@ void loop()
     Serial.printf("[BOTTLE] Command from '%s' - activating bin.\n",
                   binCmd.userName.c_str());
 
-    patchBinCommand("active", 0.0f, 0);
+    patchBinCommand("active", 0.0f, 0, "", "ready", "Bin active and ready.", currentIsoTimestamp());
     scale.tare();
     Serial.printf("  Waiting up to %lu s for bottles...\n",
                   SESSION_TIMEOUT_MS / 1000);
@@ -365,6 +371,7 @@ void loop()
     unsigned long nextStatusPoll = 0;
     int acceptedCount = 0;
     bool cancelled = false;
+    bool awaitingRemoval = false;
 
     while (millis() < deadline) {
       if (millis() >= nextStatusPoll) {
@@ -377,6 +384,14 @@ void loop()
       }
 
       float raw = quickRead();
+      if (awaitingRemoval) {
+        if (raw < DEADZONE) {
+          awaitingRemoval = false;
+        }
+        delay(200);
+        continue;
+      }
+
       if (raw >= MIN_BOTTLE_WEIGHT) {
         float weight = waitForSettle();
         if (weight >= MIN_BOTTLE_WEIGHT && weight <= MAX_BOTTLE_WEIGHT) {
@@ -388,12 +403,22 @@ void loop()
           pushBottle();
           acceptedCount++;
 
-          patchBinCommand("active", weightKg, acceptedCount, acceptedAt);
+          patchBinCommand("active", weightKg, acceptedCount, acceptedAt, "accepted", "Bottle accepted.", acceptedAt);
           sendBinEvent(weight, binCmd.userId, binCmd.userName);
 
           deadline = millis() + SESSION_TIMEOUT_MS;
           scale.tare();
           delay(900);
+        } else if (weight > 0.0f) {
+          String rejectedAt = currentIsoTimestamp();
+          String reason = "Bottle not accepted. Weight must be between ";
+          reason += String(MIN_BOTTLE_WEIGHT, 2);
+          reason += " g and ";
+          reason += String(MAX_BOTTLE_WEIGHT, 2);
+          reason += " g.";
+          Serial.printf("[BOTTLE] Rejected: %.2f g - outside allowed range.\n", weight);
+          patchBinCommand("active", -1.0f, acceptedCount, "", "rejected", reason, rejectedAt);
+          awaitingRemoval = true;
         }
       }
 

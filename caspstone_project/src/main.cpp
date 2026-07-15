@@ -28,7 +28,7 @@ HX711 scale;
 
 float calibration_factor = -540.0;
 const float MIN_BOTTLE_WEIGHT = 5.20;
-const float MAX_BOTTLE_WEIGHT = 32.00;
+const float MAX_BOTTLE_WEIGHT = 100.00;
 const float DEADZONE = 0.07;
 const int NUM_SAMPLES = 10;
 const int SETTLE_SAMPLES = 8;
@@ -369,6 +369,7 @@ void loop()
 
     unsigned long deadline = millis() + SESSION_TIMEOUT_MS;
     unsigned long nextStatusPoll = 0;
+    unsigned long nextWeightPrint = 0;
     int acceptedCount = 0;
     bool cancelled = false;
     bool awaitingRemoval = false;
@@ -392,8 +393,18 @@ void loop()
         continue;
       }
 
+      if (millis() >= nextWeightPrint) {
+        if (raw >= 0.0f) {
+          Serial.printf("  Current weight: %.2f g\n", raw);
+        } else {
+          Serial.println("  Current weight: scale not ready");
+        }
+        nextWeightPrint = millis() + 1000;
+      }
+
       if (raw >= MIN_BOTTLE_WEIGHT) {
         float weight = waitForSettle();
+        Serial.printf("  Settled weight: %.2f g\n", weight);
         if (weight >= MIN_BOTTLE_WEIGHT && weight <= MAX_BOTTLE_WEIGHT) {
           float weightKg = weight / 1000.0f;
           String acceptedAt = currentIsoTimestamp();
@@ -408,6 +419,7 @@ void loop()
 
           deadline = millis() + SESSION_TIMEOUT_MS;
           scale.tare();
+          Serial.println("  Scale tared for next bottle.");
           delay(900);
         } else if (weight > 0.0f) {
           String rejectedAt = currentIsoTimestamp();
@@ -419,6 +431,8 @@ void loop()
           Serial.printf("[BOTTLE] Rejected: %.2f g - outside allowed range.\n", weight);
           patchBinCommand("active", -1.0f, acceptedCount, "", "rejected", reason, rejectedAt);
           awaitingRemoval = true;
+          Serial.printf("  Rejected weight: %.2f g (valid range %.2f-%.2f g)\n",
+                        weight, MIN_BOTTLE_WEIGHT, MAX_BOTTLE_WEIGHT);
         }
       }
 

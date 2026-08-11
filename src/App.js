@@ -5,6 +5,7 @@ import ProtectedRoute from "./app/ProtectedRoute";
 import AppLayout from "./components/Layout";
 import "./App.css";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import AdminHardwarePage from "./pages/admin/AdminHardwarePage";
 import AdminLogsPage from "./pages/admin/AdminLogsPage";
 import AdminStoragePage from "./pages/admin/AdminStoragePage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
@@ -127,6 +128,16 @@ function AppRoutes() {
           <ProtectedRoute allowedRoles={["admin"]}>
             <AppLayout title="Logs and Reports">
               <AdminLogsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/hardware"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <AppLayout title="Hardware Readings">
+              <AdminHardwarePage />
             </AppLayout>
           </ProtectedRoute>
         }

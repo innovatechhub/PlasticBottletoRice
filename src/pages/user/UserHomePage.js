@@ -71,6 +71,7 @@ export default function UserHomePage() {
   const [insertError, setInsertError] = useState("");
   const [insertNotice, setInsertNotice] = useState("");
   const [timerSeconds, setTimerSeconds] = useState(SESSION_SECONDS);
+  const [timerPaused, setTimerPaused] = useState(false);
   const [sessionBottles, setSessionBottles] = useState([]);
   const [sessionSaved, setSessionSaved] = useState(false);
 
@@ -103,20 +104,20 @@ export default function UserHomePage() {
   }, [binModalOpen, sessionOpen]);
 
   useEffect(() => {
-    if (!sessionOpen || insertStep !== "active") return undefined;
+    if (!sessionOpen || insertStep !== "active" || timerPaused) return undefined;
     const id = setInterval(() => {
       setTimerSeconds((t) => Math.max(0, t - 1));
     }, 1000);
     return () => clearInterval(id);
-  }, [sessionOpen, insertStep]);
+  }, [sessionOpen, insertStep, timerPaused]);
 
   useEffect(() => {
-    if (!sessionOpen || timerSeconds > 0 || insertStep !== "active") return;
+    if (!sessionOpen || timerSeconds > 0 || insertStep !== "active" || timerPaused) return;
     unsubRef.current?.();
     unsubRef.current = null;
     cancelBinCommand(sessionInfoRef.current.binId).catch(() => {});
     setInsertStep("summary");
-  }, [sessionOpen, timerSeconds, insertStep]);
+  }, [sessionOpen, timerSeconds, insertStep, timerPaused]);
 
   const subscribeToCommand = useCallback((binId) => {
     if (!realtimeDb || !binId) return;
@@ -136,11 +137,35 @@ export default function UserHomePage() {
 
         if (status === "active") {
           setInsertStep("active");
-          if (lastValidationStatus === "rejected" && lastValidationAt && lastValidationAt !== lastValidationAtRef.current) {
-            setInsertNotice(lastValidationMessage || "Bottle not accepted. Please try again.");
+          if (
+            (lastValidationStatus === "warning" || lastValidationStatus === "rejected") &&
+            lastValidationAt &&
+            lastValidationAt !== lastValidationAtRef.current
+          ) {
+            setTimerPaused(lastValidationStatus === "warning");
+            setInsertNotice(
+              lastValidationMessage ||
+                (lastValidationStatus === "warning"
+                  ? "Metal detected. Please remove the object. Only plastic bottle is allowed."
+                  : "Bottle not accepted. Please try again.")
+            );
             lastValidationAtRef.current = lastValidationAt;
-          } else if (lastValidationStatus && lastValidationStatus !== "rejected") {
-            setInsertNotice("");
+          } else if (
+            lastValidationStatus === "ready" &&
+            lastValidationAt &&
+            lastValidationAt !== lastValidationAtRef.current
+          ) {
+            setTimerPaused(false);
+            setTimerSeconds(SESSION_SECONDS);
+            setInsertNotice(lastValidationMessage || "");
+            lastValidationAtRef.current = lastValidationAt;
+          } else if (
+            lastValidationStatus &&
+            lastValidationStatus !== "warning" &&
+            lastValidationStatus !== "rejected"
+          ) {
+            setTimerPaused(false);
+            setInsertNotice(lastValidationMessage || "");
           }
 
           if (lastAcceptedAt && lastAcceptedAt !== lastAcceptedAtRef.current) {
@@ -150,17 +175,20 @@ export default function UserHomePage() {
               setTimerSeconds(SESSION_SECONDS);
             }
             lastAcceptedAtRef.current = lastAcceptedAt;
+            setTimerPaused(false);
             setInsertNotice("");
           }
           return;
         }
 
         if (status === "waiting") {
+          setTimerPaused(false);
           setInsertStep("waiting");
           return;
         }
 
         if (status === "expired" || status === "idle") {
+          setTimerPaused(false);
           setInsertStep("summary");
           unsubRef.current?.();
           unsubRef.current = null;
@@ -206,6 +234,7 @@ export default function UserHomePage() {
     setSessionOpen(true);
     setInsertStep("waiting");
     setTimerSeconds(SESSION_SECONDS);
+    setTimerPaused(false);
 
     const result = await writeBinCommand(binId, currentUser.id, currentUser.name);
     if (!result.ok) {
@@ -263,6 +292,7 @@ export default function UserHomePage() {
     setInsertError("");
     setBinError("");
     setTimerSeconds(SESSION_SECONDS);
+    setTimerPaused(false);
     setSessionBottles([]);
     lastAcceptedAtRef.current = "";
     lastValidationAtRef.current = "";

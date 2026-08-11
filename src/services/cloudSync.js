@@ -36,6 +36,7 @@ let lastSyncedHash = "";
 let writeChain = Promise.resolve();
 
 const processedBinEvents = new Set();
+let hardwareStatusState = {};
 
 const remoteSnapshotState = {
   users: [],
@@ -90,13 +91,21 @@ const setRemoteState = (type, items) => {
 const allReady = () =>
   ready.users && ready.transactions && ready.notifications && ready.system;
 
-const buildStateFromRemote = () =>
-  normalizeState({
+const buildStateFromRemote = () => {
+  const normalized = normalizeState({
     users: remoteSnapshotState.users,
     transactions: remoteSnapshotState.transactions,
     notifications: remoteSnapshotState.notifications,
     system: remoteSnapshotState.system || undefined,
   });
+
+  normalized.system = {
+    ...normalized.system,
+    hardwareBins: hardwareStatusState,
+  };
+
+  return normalized;
+};
 
 const applyRemoteToLocal = () => {
   if (!allReady()) return;
@@ -372,6 +381,17 @@ const startRemoteListeners = () => {
       () => {}
     );
 
+    onValue(
+      ref(realtimeDb, "bin_status"),
+      (snapshot) => {
+        hardwareStatusState = snapshot.exists() ? snapshot.val() : {};
+        applyRemoteToLocal();
+      },
+      () => {
+        hardwareStatusState = {};
+        applyRemoteToLocal();
+      }
+    );
   }
 };
 
@@ -498,6 +518,9 @@ export async function writeRiceCommand(binId, userId, userName, amountKg) {
       amountKg,
       status: "dispensing",
       requestedAt: new Date().toISOString(),
+      dispensedKg: 0,
+      lastDispenseAt: "",
+      message: "",
     });
     return { ok: true };
   } catch (err) {

@@ -30,6 +30,13 @@ function AdminStatCard({ label, value, sub, subColor, icon }) {
 export default function AdminDashboardPage() {
   const { currentUser } = useAuth();
   const { users, transactions, system } = useData();
+  const hardwareBins = system.hardwareBins || {};
+  const primaryBinId = Object.keys(hardwareBins)[0] || "bin_001";
+  const liveBin = hardwareBins[primaryBinId] || null;
+  const liveRicePercent = Number(liveBin?.riceLevelPercent);
+  const liveBottlePercent = Number(liveBin?.bottleLevelPercent);
+  const hasLiveRice = Number.isFinite(liveRicePercent) && liveRicePercent >= 0;
+  const hasLiveBottle = Number.isFinite(liveBottlePercent) && liveBottlePercent >= 0;
 
   const households = useMemo(
     () => users.filter((u) => u.role === "user"),
@@ -156,7 +163,11 @@ export default function AdminDashboardPage() {
             <span className="adm-badge adm-badge--green">Live</span>
           </div>
           <div className="adm-big-number">{system.riceStock} <span className="adm-big-unit">kg</span></div>
-          <p className="adm-card-sub">Available for redemption</p>
+          <p className="adm-card-sub">
+            {hasLiveRice
+              ? `Ultrasonic level: ${liveRicePercent.toFixed(0)}% full (${primaryBinId})`
+              : "Available for redemption"}
+          </p>
         </div>
 
         <div className="adm-card">
@@ -173,7 +184,11 @@ export default function AdminDashboardPage() {
               style={{ width: `${storagePercent}%` }}
             />
           </div>
-          <p className="adm-card-sub" style={{ marginTop: 8 }}>Bin storage utilization</p>
+          <p className="adm-card-sub" style={{ marginTop: 8 }}>
+            {hasLiveBottle
+              ? `Ultrasonic fill level: ${liveBottlePercent.toFixed(0)}% (${primaryBinId})`
+              : "Bin storage utilization"}
+          </p>
         </div>
 
         <div className="adm-card">

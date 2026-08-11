@@ -58,6 +58,13 @@
         ".validate": "newData.val() == null || (newData.hasChildren(['binId', 'userId', 'userName', 'status', 'requestedAt', 'weightKg']) && newData.child('binId').isString() && newData.child('binId').val() != '' && newData.child('userId').isString() && newData.child('userId').val() != '' && newData.child('userName').isString() && newData.child('userName').val() != '' && newData.child('status').isString() && newData.child('status').val() != '' && newData.child('requestedAt').isString() && newData.child('requestedAt').val() != '' && newData.child('weightKg').isNumber())"
       }
     },
+    "bin_status": {
+      ".read": "auth != null",
+      "$binId": {
+        ".write": "auth != null",
+        ".validate": "newData.val() == null || (newData.hasChildren(['binId', 'updatedAt']) && newData.child('binId').isString() && newData.child('binId').val() != '' && newData.child('updatedAt').isString() && newData.child('updatedAt').val() != '' && (!newData.child('riceDistanceCm').exists() || newData.child('riceDistanceCm').isNumber()) && (!newData.child('riceLevelPercent').exists() || newData.child('riceLevelPercent').isNumber()) && (!newData.child('bottleDistanceCm').exists() || newData.child('bottleDistanceCm').isNumber()) && (!newData.child('bottleLevelPercent').exists() || newData.child('bottleLevelPercent').isNumber()) && (!newData.child('inductiveMetalDetected').exists() || newData.child('inductiveMetalDetected').isBoolean()) && (!newData.child('riceScaleWeightG').exists() || newData.child('riceScaleWeightG').isNumber()))"
+      }
+    },
     "rice_commands": {
       ".read": "auth != null",
       "$binId": {

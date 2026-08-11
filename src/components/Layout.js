@@ -12,6 +12,7 @@ const adminLinks = [
     icon: "users",
   },
   { to: "/admin/logs", label: "Logs", icon: "analytics" },
+  { to: "/admin/hardware", label: "Hardware", icon: "hardware" },
   { to: "/admin/storage", label: "Settings", icon: "settings" },
 ];
 
@@ -52,6 +53,17 @@ function MenuIcon({ name, className = "" }) {
         <path
           fill="currentColor"
           d="M19.14 12.94a7.97 7.97 0 0 0 .05-.94c0-.32-.02-.63-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94L14.4 2.8a.5.5 0 0 0-.49-.4h-3.84a.5.5 0 0 0-.49.4l-.36 2.52c-.58.23-1.12.54-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94 0 .32.02.63.05.94L2.82 14.5a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.4 1.04.72 1.62.94l.36 2.52a.5.5 0 0 0 .49.4h3.84a.5.5 0 0 0 .49-.4l.36-2.52c.58-.23 1.12-.54 1.62-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.56ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"
+        />
+      </svg>
+    );
+  }
+
+  if (name === "hardware") {
+    return (
+      <svg viewBox="0 0 24 24" className={iconClass} aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M9 2h6v2h2.5A2.5 2.5 0 0 1 20 6.5V9h2v6h-2v2.5A2.5 2.5 0 0 1 17.5 20H15v2H9v-2H6.5A2.5 2.5 0 0 1 4 17.5V15H2V9h2V6.5A2.5 2.5 0 0 1 6.5 4H9V2Zm-2.5 4a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-11ZM9 9h6v6H9V9Z"
         />
       </svg>
     );

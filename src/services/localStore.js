@@ -104,6 +104,7 @@ const seedState = () => ({
     totalWeightRecycledKg: 0,
     maxBottleCapacity: 500,
     kgPerBottle: 0.025,
+    hardwareBins: {},
     bins: {
       bin_001: { assignedUserId: "", assignedUserName: "Unassigned" },
     },

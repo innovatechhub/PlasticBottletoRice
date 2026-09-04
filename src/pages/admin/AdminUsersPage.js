@@ -345,7 +345,7 @@ export default function AdminUsersPage() {
           >
             <div className="modal-header">
               <h2 className="card-title" id="household-create-title">
-                Create Household Account
+                Create Resident Account
               </h2>
               <button
                 type="button"
@@ -411,7 +411,7 @@ export default function AdminUsersPage() {
                 />
               </label>
               <button className="btn-primary split-grid__full" type="submit">
-                Save Household
+                Save Resident
               </button>
             </form>
           </div>

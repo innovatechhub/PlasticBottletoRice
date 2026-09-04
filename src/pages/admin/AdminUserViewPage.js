@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import { useData } from "../../app/DataContext";
 import { tibiaoBarangays } from "../../constants/tibiaoBarangays";
+import Pagination from "../../components/Pagination";
 
 const BASE_URL = window.location.origin;
+const PAGE_SIZE = 10;
 
 const formatDateTime = (ts) =>
   new Date(ts).toLocaleString([], {
@@ -44,10 +46,18 @@ export default function AdminUserViewPage() {
 
   const logs = useMemo(() => {
     if (!userId) return [];
-    return transactions
-      .filter((t) => t.userId === userId && (t.type === "bottle" || t.type === "redeem"))
-      .slice(0, 20);
+    return transactions.filter(
+      (t) => t.userId === userId && (t.type === "bottle" || t.type === "redeem")
+    );
   }, [transactions, userId]);
+
+  const [logsPage, setLogsPage] = useState(1);
+  const logsTotalPages = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+  const logsCurrentPage = Math.min(logsPage, logsTotalPages);
+  const pagedLogs = useMemo(() => {
+    const start = (logsCurrentPage - 1) * PAGE_SIZE;
+    return logs.slice(start, start + PAGE_SIZE);
+  }, [logs, logsCurrentPage]);
 
   // Edit form state
   const [editOpen, setEditOpen] = useState(false);
@@ -353,7 +363,6 @@ export default function AdminUserViewPage() {
       <div className="adm-card">
         <div className="adm-card-header">
           <h3 className="adm-card-title">Activity Log</h3>
-          <span className="adm-badge adm-badge--blue">Last 20</span>
         </div>
         <div className="table-wrap">
           <table>
@@ -380,7 +389,7 @@ export default function AdminUserViewPage() {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
+                pagedLogs.map((log) => (
                   <tr key={log.id}>
                     <td>{formatDateTime(log.timestamp)}</td>
                     <td>
@@ -396,6 +405,14 @@ export default function AdminUserViewPage() {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={logsCurrentPage}
+          totalPages={logsTotalPages}
+          totalCount={logs.length}
+          onPageChange={setLogsPage}
+          label="entry"
+        />
       </div>
 
     </div>

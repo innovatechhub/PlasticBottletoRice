@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
+import Pagination from "../../components/Pagination";
 
 const formatDateTime = (timestamp) =>
   new Date(timestamp).toLocaleString([], {
@@ -17,9 +18,12 @@ const formatSigned = (value, suffix = "") => {
   return `${value > 0 ? "+" : ""}${value}${suffix}`;
 };
 
+const PAGE_SIZE = 10;
+
 export default function UserHistoryPage() {
   const { currentUser } = useAuth();
   const { transactions } = useData();
+  const [page, setPage] = useState(1);
 
   const rows = useMemo(() => {
     if (!currentUser) {
@@ -27,6 +31,13 @@ export default function UserHistoryPage() {
     }
     return transactions.filter((item) => item.userId === currentUser.id);
   }, [transactions, currentUser]);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [rows, currentPage]);
 
   return (
     <section className="card">
@@ -52,7 +63,7 @@ export default function UserHistoryPage() {
                 </td>
               </tr>
             ) : (
-              rows.map((item) => (
+              pagedRows.map((item) => (
                 <tr key={item.id}>
                   <td>{formatDateTime(item.timestamp)}</td>
                   <td>
@@ -67,6 +78,14 @@ export default function UserHistoryPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        totalCount={rows.length}
+        onPageChange={setPage}
+        label="transaction"
+      />
     </section>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useData } from "../../app/DataContext";
 import { tibiaoBarangays } from "../../constants/tibiaoBarangays";
+import Pagination from "../../components/Pagination";
 
 const emptyNewUser = {
   name: "",
@@ -9,6 +10,8 @@ const emptyNewUser = {
   barangay: "",
   password: "",
 };
+
+const PAGE_SIZE = 10;
 
 export default function AdminUsersPage() {
   const { users, actions } = useData();
@@ -24,6 +27,7 @@ export default function AdminUsersPage() {
   });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
 
   const householdUsers = useMemo(
     () => users.filter((user) => user.role === "user"),
@@ -50,6 +54,22 @@ export default function AdminUsersPage() {
       return haystack.includes(query);
     });
   }, [householdUsers, searchTerm]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredHouseholdUsers.length / PAGE_SIZE)
+  );
+  const currentPage = Math.min(page, totalPages);
+
+  const pagedHouseholdUsers = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredHouseholdUsers.slice(start, start + PAGE_SIZE);
+  }, [filteredHouseholdUsers, currentPage]);
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    setPage(1);
+  };
 
   const startEdit = (user) => {
     setEditingId(user.id);
@@ -119,7 +139,7 @@ export default function AdminUsersPage() {
             className="btn-primary"
             onClick={() => setShowCreateForm(true)}
           >
-            Add Household
+            Add Resident
           </button>
         </div>
 
@@ -135,7 +155,7 @@ export default function AdminUsersPage() {
             style={{ maxWidth: "320px" }}
             type="search"
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) => handleSearchChange(event.target.value)}
             placeholder="Search households"
             aria-label="Search households"
           />
@@ -166,7 +186,7 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ) : (
-                filteredHouseholdUsers.map((user) => {
+                pagedHouseholdUsers.map((user) => {
                 const isEditing = editingId === user.id;
                 return (
                   <tr key={user.id}>
@@ -300,6 +320,14 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalCount={filteredHouseholdUsers.length}
+          onPageChange={setPage}
+          label="household"
+        />
       </section>
 
       {showCreateForm ? (

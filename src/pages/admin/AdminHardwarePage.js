@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
 import { useData } from "../../app/DataContext";
+import Pagination from "../../components/Pagination";
+
+const PAGE_SIZE = 10;
 
 const formatSignedNumber = (value, digits = 1, suffix = "") => {
   const parsed = Number(value);
@@ -43,7 +46,10 @@ export default function AdminHardwarePage() {
   const primaryBinId = binIds[0] || "bin_001";
   const liveBin = hardwareBins[primaryBinId] || null;
 
-  const registeredBins = system.bins || {};
+  const registeredBinEntries = useMemo(
+    () => Object.entries(system.bins || {}),
+    [system.bins]
+  );
   const householdUsers = useMemo(
     () => users.filter((user) => user.role === "user"),
     [users]
@@ -53,6 +59,17 @@ export default function AdminHardwarePage() {
   const [newBinUserId, setNewBinUserId] = useState("");
   const [binStatus, setBinStatus] = useState("");
   const [binError, setBinError] = useState("");
+  const [binPage, setBinPage] = useState(1);
+
+  const binTotalPages = Math.max(
+    1,
+    Math.ceil(registeredBinEntries.length / PAGE_SIZE)
+  );
+  const binCurrentPage = Math.min(binPage, binTotalPages);
+  const pagedBinEntries = useMemo(() => {
+    const start = (binCurrentPage - 1) * PAGE_SIZE;
+    return registeredBinEntries.slice(start, start + PAGE_SIZE);
+  }, [registeredBinEntries, binCurrentPage]);
 
   const handleAddBin = (event) => {
     event.preventDefault();
@@ -130,14 +147,14 @@ export default function AdminHardwarePage() {
               </tr>
             </thead>
             <tbody>
-              {Object.keys(registeredBins).length === 0 ? (
+              {registeredBinEntries.length === 0 ? (
                 <tr>
                   <td colSpan="2" className="muted-cell">
                     No bins registered yet.
                   </td>
                 </tr>
               ) : (
-                Object.entries(registeredBins).map(([binId, bin]) => (
+                pagedBinEntries.map(([binId, bin]) => (
                   <tr key={binId}>
                     <td>{binId}</td>
                     <td>{bin?.assignedUserName || "Unassigned"}</td>
@@ -147,6 +164,14 @@ export default function AdminHardwarePage() {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={binCurrentPage}
+          totalPages={binTotalPages}
+          totalCount={registeredBinEntries.length}
+          onPageChange={setBinPage}
+          label="bin"
+        />
       </section>
 
       <section className="card">

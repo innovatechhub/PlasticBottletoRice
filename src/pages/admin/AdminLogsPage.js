@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useData } from "../../app/DataContext";
+import Pagination from "../../components/Pagination";
 
 const formatDateTime = (timestamp) =>
   new Date(timestamp).toLocaleString([], {
@@ -9,10 +10,13 @@ const formatDateTime = (timestamp) =>
     minute: "2-digit",
   });
 
+const PAGE_SIZE = 10;
+
 export default function AdminLogsPage() {
   const { transactions, users, actions } = useData();
   const [filterType, setFilterType] = useState("all");
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
 
   const barangayByUserId = useMemo(() => {
     const map = new Map();
@@ -38,6 +42,22 @@ export default function AdminLogsPage() {
     return transactions.filter((transaction) => transaction.type === filterType);
   }, [transactions, filterType]);
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredTransactions.length / PAGE_SIZE)
+  );
+  const currentPage = Math.min(page, totalPages);
+
+  const pagedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredTransactions.slice(start, start + PAGE_SIZE);
+  }, [filteredTransactions, currentPage]);
+
+  const handleFilterChange = (value) => {
+    setFilterType(value);
+    setPage(1);
+  };
+
   return (
     <div className="stack">
       <section className="card">
@@ -46,7 +66,7 @@ export default function AdminLogsPage() {
           <select
             className="input-field compact"
             value={filterType}
-            onChange={(event) => setFilterType(event.target.value)}
+            onChange={(event) => handleFilterChange(event.target.value)}
           >
             <option value="all">All</option>
             <option value="bottle">Bottle Inserts</option>
@@ -80,7 +100,7 @@ export default function AdminLogsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((item) => (
+                pagedTransactions.map((item) => (
                   <tr key={item.id}>
                     <td>{formatDateTime(item.timestamp)}</td>
                     <td>{item.userName}</td>
@@ -125,6 +145,14 @@ export default function AdminLogsPage() {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalCount={filteredTransactions.length}
+          onPageChange={setPage}
+          label="log"
+        />
       </section>
     </div>
   );

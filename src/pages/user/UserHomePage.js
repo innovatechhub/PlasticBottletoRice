@@ -59,7 +59,12 @@ function StatTile({ icon, label, value, note, accent }) {
 export default function UserHomePage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { transactions, actions } = useData();
+  const { transactions, system, actions } = useData();
+
+  const availableBins = useMemo(
+    () => Object.keys(system.bins || {}),
+    [system.bins]
+  );
 
   const [binModalOpen, setBinModalOpen] = useState(false);
   const [binInput, setBinInput] = useState("");
@@ -201,10 +206,7 @@ export default function UserHomePage() {
     );
   }, []);
 
-  const handleStartInsert = async (event) => {
-    event.preventDefault();
-    const binId = binInput.trim();
-
+  const startInsertWithBin = async (binId) => {
     if (!binId) {
       setBinError("Enter a bin ID to continue.");
       return;
@@ -244,6 +246,20 @@ export default function UserHomePage() {
     }
 
     subscribeToCommand(binId);
+  };
+
+  const handleStartInsert = async (event) => {
+    event.preventDefault();
+    await startInsertWithBin(binInput.trim());
+  };
+
+  const handleInsertBottleClick = async () => {
+    if (availableBins.length === 1) {
+      await startInsertWithBin(availableBins[0]);
+      return;
+    }
+    setBinError("");
+    setBinModalOpen(true);
   };
 
   const handleDone = async () => {
@@ -367,10 +383,7 @@ export default function UserHomePage() {
             <button
               type="button"
               className="portal-btn portal-btn-insert"
-              onClick={() => {
-                setBinError("");
-                setBinModalOpen(true);
-              }}
+              onClick={handleInsertBottleClick}
             >
               <BottleIcon />
               Insert Bottle

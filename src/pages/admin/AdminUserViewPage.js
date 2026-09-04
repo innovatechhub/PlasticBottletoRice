@@ -15,11 +15,14 @@ const formatDateTime = (ts) =>
     minute: "2-digit",
   });
 
-function toCreditLog(log) {
-  if (log.type === "bottle") {
-    return `Inserted ${log.amount} bottle(s) — +${Number(log.kgDelta ?? 0).toFixed(3)} kg earned`;
-  }
-  return `Redeemed ${Math.abs(Number(log.riceDeltaKg ?? 0)).toFixed(3)} kg of rice — −${Math.abs(Number(log.kgDelta ?? 0)).toFixed(3)} kg used`;
+function toDepositCell(log) {
+  if (log.type !== "bottle") return "—";
+  return `+${Number(log.kgDelta ?? 0).toFixed(3)} kg`;
+}
+
+function toRedeemCell(log) {
+  if (log.type !== "redeem") return "—";
+  return `${Math.abs(Number(log.riceDeltaKg ?? 0)).toFixed(3)} kg rice`;
 }
 
 export default function AdminUserViewPage() {
@@ -358,13 +361,14 @@ export default function AdminUserViewPage() {
               <tr>
                 <th>Date &amp; Time</th>
                 <th>Type</th>
-                <th>Details</th>
+                <th>Deposit</th>
+                <th>Redeem</th>
               </tr>
             </thead>
             <tbody>
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan="3" className="muted-cell">
+                  <td colSpan="4" className="muted-cell">
                     <div className="empty-activity">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
                         strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
@@ -384,7 +388,8 @@ export default function AdminUserViewPage() {
                         {log.type === "bottle" ? "Bottle Insert" : "Redemption"}
                       </span>
                     </td>
-                    <td>{toCreditLog(log)}</td>
+                    <td>{toDepositCell(log)}</td>
+                    <td>{toRedeemCell(log)}</td>
                   </tr>
                 ))
               )}

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useData } from "../../app/DataContext";
 
 const formatSignedNumber = (value, digits = 1, suffix = "") => {
@@ -36,12 +36,45 @@ function statusTextForDistance(value) {
 }
 
 export default function AdminHardwarePage() {
-  const { system } = useData();
+  const { system, users, actions } = useData();
 
   const hardwareBins = system.hardwareBins || {};
   const binIds = Object.keys(hardwareBins);
   const primaryBinId = binIds[0] || "bin_001";
   const liveBin = hardwareBins[primaryBinId] || null;
+
+  const registeredBins = system.bins || {};
+  const householdUsers = useMemo(
+    () => users.filter((user) => user.role === "user"),
+    [users]
+  );
+
+  const [newBinId, setNewBinId] = useState("");
+  const [newBinUserId, setNewBinUserId] = useState("");
+  const [binStatus, setBinStatus] = useState("");
+  const [binError, setBinError] = useState("");
+
+  const handleAddBin = (event) => {
+    event.preventDefault();
+    setBinStatus("");
+    setBinError("");
+
+    const assignedUser = householdUsers.find((user) => user.id === newBinUserId);
+    const result = actions.addBin(
+      newBinId,
+      assignedUser?.id || "",
+      assignedUser?.name || ""
+    );
+
+    if (!result.ok) {
+      setBinError(result.error);
+      return;
+    }
+
+    setBinStatus(`Bin "${newBinId.trim()}" added.`);
+    setNewBinId("");
+    setNewBinUserId("");
+  };
 
   const updatedAtLabel = useMemo(() => {
     const updatedAt = liveBin?.updatedAt;
@@ -53,6 +86,69 @@ export default function AdminHardwarePage() {
 
   return (
     <div className="stack">
+      <section className="card">
+        <h2 className="card-title">Bin Management</h2>
+        <form className="split-grid" onSubmit={handleAddBin}>
+          <label>
+            New Bin ID
+            <input
+              className="input-field"
+              value={newBinId}
+              onChange={(event) => setNewBinId(event.target.value)}
+              placeholder="e.g. bin_002"
+              required
+            />
+          </label>
+          <label>
+            Assign to household (optional)
+            <select
+              className="input-field"
+              value={newBinUserId}
+              onChange={(event) => setNewBinUserId(event.target.value)}
+            >
+              <option value="">Unassigned</option>
+              {householdUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className="btn-primary">
+            Add Bin
+          </button>
+        </form>
+        {binStatus ? <p className="success-text">{binStatus}</p> : null}
+        {binError ? <p className="error-text">{binError}</p> : null}
+
+        <div className="table-wrap" style={{ marginTop: 16 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Bin ID</th>
+                <th>Assigned To</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(registeredBins).length === 0 ? (
+                <tr>
+                  <td colSpan="2" className="muted-cell">
+                    No bins registered yet.
+                  </td>
+                </tr>
+              ) : (
+                Object.entries(registeredBins).map(([binId, bin]) => (
+                  <tr key={binId}>
+                    <td>{binId}</td>
+                    <td>{bin?.assignedUserName || "Unassigned"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section className="card">
         <h2 className="card-title">All Hardware Components</h2>
         <p className="muted-text">

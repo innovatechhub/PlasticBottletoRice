@@ -126,21 +126,6 @@ export default function AdminDashboardPage() {
           }
         />
         <AdminStatCard
-          label="Pending Redemptions"
-          value={redeemTx.length}
-          sub={`${bottleTx.length} bottle insert logs`}
-          subColor="amber"
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-              <path d="M20 12V22H4V12"/>
-              <path d="M22 7H2v5h20V7z"/>
-              <path d="M12 22V7"/>
-              <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
-              <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
-            </svg>
-          }
-        />
-        <AdminStatCard
           label="Items Recycled"
           value={(system.totalItemsRecycled ?? 0).toLocaleString()}
           sub={`${Number(system.totalWeightRecycledKg ?? 0).toFixed(3)} kg recycled total`}

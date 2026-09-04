@@ -160,6 +160,7 @@ const normalizeState = (candidateState) => {
           )
         ),
         details: transaction.details || "",
+        status: transaction.status || "completed",
         timestamp: transaction.timestamp || now(),
       }))
     : base.transactions;
@@ -342,6 +343,7 @@ const appendTransaction = ({
   riceDeltaKg = 0,
   bottleDelta = 0,
   details = "",
+  status = "completed",
 }) => {
   const transaction = {
     id: createId("tx"),
@@ -353,6 +355,7 @@ const appendTransaction = ({
     riceDeltaKg: roundToThree(toNumber(riceDeltaKg, 0)),
     bottleDelta: Math.max(0, Math.floor(toNumber(bottleDelta, 0))),
     details,
+    status,
     timestamp: now(),
   };
   state.transactions.unshift(transaction);
@@ -736,6 +739,33 @@ export const dataStore = {
     return { ok: true };
   },
 
+  addBin(binId, userId = "", userName = "") {
+    const trimmedBinId = String(binId || "").trim();
+    if (!trimmedBinId) {
+      return { ok: false, error: "Bin ID is required." };
+    }
+
+    if (!state.system.bins) state.system.bins = {};
+    if (state.system.bins[trimmedBinId]) {
+      return { ok: false, error: "Bin ID already exists." };
+    }
+
+    let assignedUserId = "";
+    let assignedUserName = "Unassigned";
+    if (userId) {
+      const user = getUserById(userId);
+      if (!user) {
+        return { ok: false, error: "Selected household was not found." };
+      }
+      assignedUserId = user.id;
+      assignedUserName = userName || user.name;
+    }
+
+    state.system.bins[trimmedBinId] = { assignedUserId, assignedUserName };
+    emit();
+    return { ok: true };
+  },
+
   redeemRice(userId, kgToRedeem) {
     const user = getUserById(userId);
     if (!user) {
@@ -754,7 +784,31 @@ export const dataStore = {
       };
     }
 
+    if (riceKg > 25) {
+      appendNotification({
+        title: "Large Redemption Request",
+        message: `${user.name} is redeeming ${riceKg} kg — please assist collecting rice at the bin.`,
+        targetRole: "admin",
+        type: "warning",
+      });
+      appendNotification({
+        title: "Large Redemption",
+        message: `Your redemption of ${riceKg} kg exceeds 25 kg — an admin has been notified to assist.`,
+        userId: user.id,
+        type: "info",
+      });
+    }
+
     const previousRice = state.system.riceStock;
+    if (previousRice < riceKg) {
+      appendNotification({
+        title: "Rice Stock Insufficient",
+        message: `Only ${previousRice} kg of rice available; ${riceKg} kg was requested. Dispenser may run short.`,
+        targetRole: "admin",
+        type: "warning",
+      });
+    }
+
     user.weightKg = roundToThree(user.weightKg - riceKg);
     // Allow redemption to proceed for dispenser/servo testing even when stock is depleted.
     state.system.riceStock = Math.max(
@@ -794,6 +848,45 @@ export const dataStore = {
       ok: true,
       riceKg,
     };
+  },
+
+  declineRedemption(transactionId) {
+    const transaction = state.transactions.find(
+      (item) => item.id === transactionId
+    );
+
+    if (!transaction) {
+      return { ok: false, error: "Transaction not found." };
+    }
+
+    if (transaction.type !== "redeem") {
+      return { ok: false, error: "Only redemptions can be declined." };
+    }
+
+    if (transaction.status === "declined") {
+      return { ok: false, error: "This redemption is already declined." };
+    }
+
+    const user = getUserById(transaction.userId);
+    const refundKg = Math.abs(toNumber(transaction.kgDelta, 0));
+    const refundRiceKg = Math.abs(toNumber(transaction.riceDeltaKg, 0));
+
+    if (user) {
+      user.weightKg = roundToThree(user.weightKg + refundKg);
+    }
+    state.system.riceStock = roundToThree(state.system.riceStock + refundRiceKg);
+
+    transaction.status = "declined";
+
+    appendNotification({
+      title: "Redemption Declined",
+      message: `Your redemption of ${refundRiceKg} kg was declined and refunded to your balance.`,
+      userId: transaction.userId,
+      type: "warning",
+    });
+
+    emit();
+    return { ok: true };
   },
 
   updateSystemConfig(updates) {
@@ -842,6 +935,7 @@ export const dataStore = {
       };
     }
 
+    const previousStock = state.system.riceStock;
     state.system.riceStock = roundToThree(state.system.riceStock + amount);
 
     appendTransaction({
@@ -861,6 +955,15 @@ export const dataStore = {
       targetRole: "all",
       type: "info",
     });
+
+    if (previousStock <= 0 && state.system.riceStock > 0) {
+      appendNotification({
+        title: "Rice Available",
+        message: "Rice stock is available again — you can now redeem.",
+        targetRole: "user",
+        type: "success",
+      });
+    }
 
     emit();
     return {

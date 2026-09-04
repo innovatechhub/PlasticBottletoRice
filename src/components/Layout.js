@@ -7,8 +7,8 @@ const adminLinks = [
   { to: "/admin/dashboard", label: "Home", icon: "home" },
   {
     to: "/admin/users",
-    label: "Household",
-    mobileLabel: "Household",
+    label: "Resident",
+    mobileLabel: "Resident",
     icon: "users",
   },
   { to: "/admin/logs", label: "Logs", icon: "analytics" },

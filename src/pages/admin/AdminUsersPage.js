@@ -113,7 +113,7 @@ export default function AdminUsersPage() {
     <div className="stack">
       <section className="card">
         <div className="row-between">
-          <h2 className="card-title">Household Management</h2>
+          <h2 className="card-title">User Management</h2>
           <button
             type="button"
             className="btn-primary"
@@ -151,6 +151,8 @@ export default function AdminUsersPage() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Barangay</th>
+                <th>Accumulated (kg)</th>
+                <th>Bottles Recycled</th>
                 <th>Balance (kg)</th>
                 <th>View</th>
                 <th>Actions</th>
@@ -159,7 +161,7 @@ export default function AdminUsersPage() {
             <tbody>
               {filteredHouseholdUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="muted-cell">
+                  <td colSpan="8" className="muted-cell">
                     No households match your search.
                   </td>
                 </tr>
@@ -224,6 +226,8 @@ export default function AdminUsersPage() {
                         user.barangay || "—"
                       )}
                     </td>
+                    <td>{`${(user.totalRecycledWeightKg ?? 0).toFixed(3)} kg`}</td>
+                    <td>{user.recycledItemCount ?? 0}</td>
                     <td>
                       {isEditing ? (
                         <input

@@ -92,8 +92,12 @@ export function DataProvider({ children }) {
         dataStore.finalizeBottleSession(userId, bottleWeightsKg, binId),
       updateBinAssignment: (binId, userId, userName) =>
         dataStore.updateBinAssignment(binId, userId, userName),
+      addBin: (binId, userId, userName) =>
+        dataStore.addBin(binId, userId, userName),
       redeemRice: (userId, kgToRedeem) =>
         dataStore.redeemRice(userId, kgToRedeem),
+      declineRedemption: (transactionId) =>
+        dataStore.declineRedemption(transactionId),
       updateSystemConfig: (updates) => dataStore.updateSystemConfig(updates),
       restockRice: (amountKg) => dataStore.restockRice(amountKg),
       clearBottleStorage: () => dataStore.clearBottleStorage(),

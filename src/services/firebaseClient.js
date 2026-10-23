@@ -1,5 +1,11 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { getApps, initializeApp } from "firebase/app";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  inMemoryPersistence,
+  initializeAuth,
+  signOut,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 
@@ -53,42 +59,58 @@ export const firestoreDb = firebaseApp ? getFirestore(firebaseApp) : null;
 export const realtimeDb =
   firebaseApp && firebaseConfig.databaseURL ? getDatabase(firebaseApp) : null;
 
-// Resolves once Firebase has loaded the persisted auth state from localStorage.
-// Without awaiting this, currentUser may be null immediately after page load
-// even when a session was previously saved, causing signInAnonymously to create
-// a new UID and breaking session restoration.
-const authReady = firebaseAuth
-  ? new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-        unsubscribe();
-        resolve(user);
-      });
-    })
-  : Promise.resolve(null);
+// Username logins are stored in Firebase Auth as <username>@<project>.firebaseapp.com.
+// That domain belongs to the Firebase project and has no mailbox. scripts/admin-tools.js
+// uses the same mapping.
+export const USERNAME_LOGIN_DOMAIN = `${firebaseConfig.projectId}.firebaseapp.com`;
+export const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,29}$/;
+export const USERNAME_RULES =
+  "3-30 characters: lowercase letters, numbers, dots, dashes or underscores.";
 
-let sessionPromise = null;
+export const normalizeLoginId = (value) => String(value || "").trim().toLowerCase();
 
-export async function ensureFirebaseSession() {
-  if (!firebaseAuth) {
-    return false;
+// Accepts a username or an email and returns the email Firebase Auth uses.
+export function toLoginEmail(loginId) {
+  const id = normalizeLoginId(loginId);
+  return id.includes("@") ? id : `${id}@${USERNAME_LOGIN_DOMAIN}`;
+}
+
+export function isUsernameLogin(email) {
+  return normalizeLoginId(email).endsWith(`@${USERNAME_LOGIN_DOMAIN}`);
+}
+
+// What to show an admin as a resident's login: their username, or email for older accounts.
+export function displayLoginId(user) {
+  if (user?.username) return user.username;
+  const email = String(user?.email || "");
+  return isUsernameLogin(email) ? email.split("@")[0] : email;
+}
+
+export function hasSignedInUser() {
+  return Boolean(firebaseAuth?.currentUser);
+}
+
+// Creating a user with the client SDK signs that user in, so resident logins are
+// created on a separate, non-persisted app instance to keep the admin signed in.
+const PROVISIONING_APP_NAME = "resident-provisioning";
+let provisioningAuth = null;
+
+function getProvisioningAuth() {
+  if (!provisioningAuth) {
+    const app =
+      getApps().find((item) => item.name === PROVISIONING_APP_NAME) ||
+      initializeApp(firebaseConfig, PROVISIONING_APP_NAME);
+    provisioningAuth = initializeAuth(app, { persistence: inMemoryPersistence });
   }
+  return provisioningAuth;
+}
 
-  // Wait for Firebase to finish restoring auth state from localStorage
-  // before checking currentUser or calling signInAnonymously.
-  await authReady;
-
-  if (firebaseAuth.currentUser) {
-    return true;
+export async function createResidentLogin(email, password) {
+  if (!firebaseApp) {
+    throw new Error("Firebase not configured.");
   }
-
-  if (!sessionPromise) {
-    sessionPromise = signInAnonymously(firebaseAuth)
-      .then(() => true)
-      .catch(() => false)
-      .finally(() => {
-        sessionPromise = null;
-      });
-  }
-
-  return sessionPromise;
+  const auth = getProvisioningAuth();
+  const credential = await createUserWithEmailAndPassword(auth, email, password);
+  await signOut(auth);
+  return credential.user.uid;
 }

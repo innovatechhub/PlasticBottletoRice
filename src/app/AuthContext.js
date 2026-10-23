@@ -1,113 +1,153 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 import { dataStore } from "../services/localStore";
+import { firebaseAuth, toLoginEmail } from "../services/firebaseClient";
+import {
+  getSyncMode,
+  startCloudSync,
+  stopCloudSync,
+} from "../services/cloudSync";
 
 const AuthContext = createContext(null);
-const SESSION_KEY = "pbtr_active_user";
 
-function readSavedUserId() {
-  try {
-    return localStorage.getItem(SESSION_KEY) || "";
-  } catch {
-    return "";
-  }
-}
+// Older builds stored the signed-in user id here, which let anyone pick an identity.
+const LEGACY_SESSION_KEY = "pbtr_active_user";
 
-function persistActiveSession(userId) {
-  try {
-    localStorage.setItem(SESSION_KEY, userId);
-  } catch {}
-}
-
-function clearActiveSession() {
-  try {
-    localStorage.removeItem(SESSION_KEY);
-  } catch {}
-}
+const LOGIN_ERRORS = {
+  "auth/invalid-credential": "Invalid credentials. Check your username and password.",
+  "auth/wrong-password": "Invalid credentials. Check your username and password.",
+  "auth/user-not-found": "Invalid credentials. Check your username and password.",
+  "auth/invalid-email": "Enter a valid username.",
+  "auth/user-disabled": "This account has been disabled.",
+  "auth/too-many-requests": "Too many attempts. Wait a moment and try again.",
+  "auth/network-request-failed": "Network error. Check your connection.",
+};
 
 export function AuthProvider({ children }) {
-  const [activeUserId, setActiveUserId] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
-  const [sessionReady, setSessionReady] = useState(false);
-  const [resolvingUser, setResolvingUser] = useState(false);
+  // { uid, role, name, email } once the signed-in user's role and data are loaded.
+  const [session, setSession] = useState(null);
+  const [residentProfile, setResidentProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState("");
 
-  // Subscribe to dataStore so currentUser stays in sync with remote changes
   useEffect(() => {
-    const unsubscribe = dataStore.subscribe((snapshot) => {
-      if (!activeUserId) {
-        setCurrentUser(null);
-        setResolvingUser(false);
-        return;
-      }
+    try {
+      localStorage.removeItem(LEGACY_SESSION_KEY);
+    } catch {}
 
-      const matchedUser =
-        snapshot.users.find((user) => user.id === activeUserId) || null;
-
-      if (!matchedUser) {
-        setCurrentUser(null);
-        setResolvingUser(true);
-        return;
-      }
-
-      setCurrentUser(matchedUser);
-      setResolvingUser(false);
-    });
-
-    return unsubscribe;
-  }, [activeUserId]);
-
-  // Restore session from localStorage on mount (synchronous read — no async race)
-  useEffect(() => {
-    const savedId = readSavedUserId();
-    if (savedId) {
-      setActiveUserId(savedId);
-      setResolvingUser(true);
-    }
-    setSessionReady(true);
-  }, []);
-
-  // Fallback: if the user ID from localStorage no longer resolves to a known
-  // user within 5 s (e.g. user was deleted), clear the stale session.
-  useEffect(() => {
-    if (!sessionReady || !activeUserId || currentUser || !resolvingUser) {
+    if (!firebaseAuth) {
+      setLoading(false);
       return undefined;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      clearActiveSession();
-      setActiveUserId("");
-      setCurrentUser(null);
-      setResolvingUser(false);
-    }, 5000);
+    return onAuthStateChanged(firebaseAuth, async (user) => {
+      if (!user) {
+        stopCloudSync();
+        setSession(null);
+        setLoading(false);
+        return;
+      }
 
-    return () => window.clearTimeout(timeoutId);
-  }, [sessionReady, activeUserId, currentUser, resolvingUser]);
+      setLoading(true);
+      try {
+        const { claims } = await user.getIdTokenResult();
+        if (claims.role === "device") {
+          throw new Error("Bin device accounts cannot sign in to the web app.");
+        }
+        const role = claims.role === "admin" ? "admin" : "user";
 
-  const login = ({ email, password }) => {
-    const result = dataStore.login(email, password);
-    if (!result.ok) {
-      return result;
+        const result = await startCloudSync({ uid: user.uid, role });
+        if (!result.ok) {
+          throw new Error(result.error);
+        }
+
+        setAuthError("");
+        setSession({
+          uid: user.uid,
+          role,
+          name: user.displayName || "Admin",
+          email: user.email || "",
+        });
+      } catch (error) {
+        setAuthError(error.message);
+        setSession(null);
+        await signOut(firebaseAuth);
+      } finally {
+        setLoading(false);
+      }
+    });
+  }, []);
+
+  // Residents' profile (name, balance, ...) lives in Firestore and updates live.
+  useEffect(() => {
+    if (session?.role !== "user") {
+      setResidentProfile(null);
+      return undefined;
     }
 
-    persistActiveSession(result.user.id);
-    setActiveUserId(result.user.id);
-    setCurrentUser(result.user);
-    setResolvingUser(false);
+    return dataStore.subscribe((snapshot) => {
+      const profile =
+        snapshot.users.find((user) => user.id === session.uid) || null;
+      setResidentProfile(profile);
 
-    return { ok: true, user: result.user };
+      // A resident whose profile was deleted while signed in is signed out.
+      if (!profile && getSyncMode() === "firebase" && firebaseAuth) {
+        setAuthError("Your resident profile was removed. Contact the admin.");
+        signOut(firebaseAuth);
+      }
+    });
+  }, [session]);
+
+  const currentUser = useMemo(() => {
+    if (session?.role === "admin") {
+      return {
+        id: session.uid,
+        name: session.name,
+        email: session.email,
+        role: "admin",
+      };
+    }
+    if (session?.role === "user") {
+      return residentProfile;
+    }
+    return null;
+  }, [session, residentProfile]);
+
+  // `loginId` is a username, or an email for admins and older resident accounts.
+  const login = async ({ loginId, password }) => {
+    if (!firebaseAuth) {
+      return { ok: false, error: "Firebase is not configured." };
+    }
+    setAuthError("");
+    try {
+      await signInWithEmailAndPassword(
+        firebaseAuth,
+        toLoginEmail(loginId),
+        String(password || "")
+      );
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: LOGIN_ERRORS[error.code] || "Sign-in failed. Please try again.",
+      };
+    }
   };
 
-  const logout = () => {
-    clearActiveSession();
-    setActiveUserId("");
-    setCurrentUser(null);
-    setResolvingUser(false);
+  const logout = async () => {
+    if (firebaseAuth) {
+      await signOut(firebaseAuth);
+    }
   };
 
   const value = {
     currentUser,
-    loading:
-      !sessionReady ||
-      (Boolean(activeUserId) && resolvingUser && !currentUser),
+    loading: loading || (session?.role === "user" && !residentProfile),
+    authError,
     login,
     logout,
   };

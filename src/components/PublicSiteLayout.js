@@ -1,4 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
+import PublicMobileNav from "./PublicMobileNav";
 
 export default function PublicSiteLayout({ children }) {
   return (
@@ -49,6 +50,7 @@ export default function PublicSiteLayout({ children }) {
       </header>
 
       {children}
+      <PublicMobileNav />
     </div>
   );
 }

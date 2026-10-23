@@ -1,19 +1,3 @@
-const REQUIRED_ADMIN_ACCOUNT = {
-  id: "admin_main",
-  name: "Admin",
-  email: "admin@admin.com",
-  password: "Admin12345",
-  role: "admin",
-};
-const REQUIRED_HOUSEHOLD_ACCOUNT = {
-  id: "user_main",
-  name: "Garcia Household",
-  email: "garcia@pbtr.local",
-  password: "user123",
-  role: "user",
-  barangay: "",
-};
-
 const now = () => new Date().toISOString();
 
 const createId = (prefix) =>
@@ -69,32 +53,7 @@ const buildLifetimeStats = (transactions = []) => {
 };
 
 const seedState = () => ({
-  users: [
-    {
-      id: REQUIRED_ADMIN_ACCOUNT.id,
-      name: REQUIRED_ADMIN_ACCOUNT.name,
-      email: REQUIRED_ADMIN_ACCOUNT.email,
-      password: REQUIRED_ADMIN_ACCOUNT.password,
-      role: REQUIRED_ADMIN_ACCOUNT.role,
-      barangay: "",
-      weightKg: 0,
-      recycledItemCount: 0,
-      totalRecycledWeightKg: 0,
-      createdAt: now(),
-    },
-    {
-      id: REQUIRED_HOUSEHOLD_ACCOUNT.id,
-      name: REQUIRED_HOUSEHOLD_ACCOUNT.name,
-      email: REQUIRED_HOUSEHOLD_ACCOUNT.email,
-      password: REQUIRED_HOUSEHOLD_ACCOUNT.password,
-      role: REQUIRED_HOUSEHOLD_ACCOUNT.role,
-      barangay: REQUIRED_HOUSEHOLD_ACCOUNT.barangay,
-      weightKg: 0,
-      recycledItemCount: 0,
-      totalRecycledWeightKg: 0,
-      createdAt: now(),
-    },
-  ],
+  users: [],
   transactions: [],
   notifications: [],
   system: {
@@ -177,7 +136,7 @@ const normalizeState = (candidateState) => {
           id: user.id || createId("user"),
           name: user.name || "Unnamed Household",
           email: String(user.email || "").toLowerCase(),
-          password: user.password || "user123",
+          username: String(user.username || "").toLowerCase(),
           role: user.role === "admin" ? "admin" : "user",
           barangay: String(user.barangay || "").trim(),
           weightKg: Math.max(
@@ -206,41 +165,6 @@ const normalizeState = (candidateState) => {
         }))
         .filter((user) => user.email)
     : base.users;
-
-  const upsertRequiredUser = (requiredUser) => {
-    const index = users.findIndex((user) => user.email === requiredUser.email);
-    if (index >= 0) {
-      users[index] = {
-        ...users[index],
-        name: requiredUser.name,
-        role: requiredUser.role,
-        password: requiredUser.password,
-        barangay: requiredUser.barangay || "",
-      };
-      return;
-    }
-
-    users.unshift({
-      id: requiredUser.id,
-      name: requiredUser.name,
-      email: requiredUser.email,
-      password: requiredUser.password,
-      role: requiredUser.role,
-      barangay: requiredUser.barangay || "",
-      weightKg: 0,
-      recycledItemCount: 0,
-      totalRecycledWeightKg: 0,
-      createdAt: now(),
-    });
-  };
-
-  upsertRequiredUser(REQUIRED_ADMIN_ACCOUNT);
-  upsertRequiredUser(REQUIRED_HOUSEHOLD_ACCOUNT);
-
-  const hasAdmin = users.some((user) => user.role === "admin");
-  if (!hasAdmin) {
-    users.unshift(base.users[0]);
-  }
 
   return {
     users,
@@ -413,46 +337,26 @@ export const dataStore = {
     };
   },
 
-  login(email, password) {
-    const normalizedEmail = String(email || "").trim().toLowerCase();
-    const attemptedPassword = String(password || "");
-    const user = state.users.find(
-      (item) =>
-        item.email.toLowerCase() === normalizedEmail &&
-        item.password === attemptedPassword
-    );
-
-    if (!user) {
-      return {
-        ok: false,
-        error: "Invalid credentials. Check your email and password.",
-      };
-    }
-
-    return {
-      ok: true,
-      user: sanitizeUser(user),
-    };
-  },
-
+  // `payload.id` is the Firebase Auth uid of the resident's login.
   addUser(payload) {
+    const id = String(payload.id || "").trim();
     const name = String(payload.name || "").trim();
     const email = String(payload.email || "").trim().toLowerCase();
-    const password = String(payload.password || "").trim();
+    const username = String(payload.username || "").trim().toLowerCase();
     const barangay = String(payload.barangay || "").trim();
 
-    if (!name || !email || !password || !barangay) {
+    if (!id || !name || !email || !barangay) {
       return {
         ok: false,
-        error: "Name, email, password, and barangay are required.",
+        error: "Name, username, and barangay are required.",
       };
     }
 
     const user = {
-      id: createId("user"),
+      id,
       name,
       email,
-      password,
+      username,
       role: "user",
       barangay,
       weightKg: 0,
@@ -497,20 +401,7 @@ export const dataStore = {
       user.name = name;
     }
 
-    if (typeof updates.email !== "undefined") {
-      const email = String(updates.email).trim().toLowerCase();
-      if (!email) {
-        return {
-          ok: false,
-          error: "Email cannot be empty.",
-        };
-      }
-      user.email = email;
-    }
-
-    if (typeof updates.password !== "undefined" && updates.password !== "") {
-      user.password = String(updates.password);
-    }
+    // Email and password belong to the Firebase Auth login and are not editable here.
 
     if (typeof updates.barangay !== "undefined") {
       const barangay = String(updates.barangay).trim();

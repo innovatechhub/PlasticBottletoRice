@@ -3,10 +3,11 @@ import { Link } from "react-router-dom";
 import { useData } from "../../app/DataContext";
 import { tibiaoBarangays } from "../../constants/tibiaoBarangays";
 import Pagination from "../../components/Pagination";
+import { displayLoginId, USERNAME_RULES } from "../../services/firebaseClient";
 
 const emptyNewUser = {
   name: "",
-  email: "",
+  username: "",
   barangay: "",
   password: "",
 };
@@ -21,9 +22,8 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingForm, setEditingForm] = useState({
     name: "",
-    email: "",
+    barangay: "",
     weightKg: 0,
-    password: "",
   });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -43,7 +43,7 @@ export default function AdminUsersPage() {
     return householdUsers.filter((user) => {
       const haystack = [
         user.name,
-        user.email,
+        displayLoginId(user),
         user.barangay,
         user.id,
       ]
@@ -75,10 +75,8 @@ export default function AdminUsersPage() {
     setEditingId(user.id);
     setEditingForm({
       name: user.name,
-      email: user.email,
       barangay: user.barangay || "",
       weightKg: user.weightKg,
-      password: "",
     });
   };
 
@@ -126,7 +124,9 @@ export default function AdminUsersPage() {
       return;
     }
 
-    setStatus(`Deleted account for ${name}.`);
+    setStatus(
+      `Deleted account for ${name}. Their login can no longer access any data.`
+    );
   };
 
   return (
@@ -169,7 +169,7 @@ export default function AdminUsersPage() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>
+                <th>Username</th>
                 <th>Barangay</th>
                 <th>Accumulated (kg)</th>
                 <th>Bottles Recycled</th>
@@ -206,22 +206,7 @@ export default function AdminUsersPage() {
                         user.name
                       )}
                     </td>
-                    <td>
-                      {isEditing ? (
-                        <input
-                          className="input-field"
-                          value={editingForm.email}
-                          onChange={(event) =>
-                            setEditingForm((prev) => ({
-                              ...prev,
-                              email: event.target.value,
-                            }))
-                          }
-                        />
-                      ) : (
-                        user.email
-                      )}
-                    </td>
+                    <td>{displayLoginId(user)}</td>
                     <td>
                       {isEditing ? (
                         <select
@@ -369,14 +354,23 @@ export default function AdminUsersPage() {
                 />
               </label>
               <label>
-                Email
+                Username
                 <input
                   className="input-field"
-                  type="email"
-                  value={newUser.email}
+                  type="text"
+                  value={newUser.username}
                   onChange={(event) =>
-                    setNewUser((prev) => ({ ...prev, email: event.target.value }))
+                    setNewUser((prev) => ({
+                      ...prev,
+                      username: event.target.value.toLowerCase(),
+                    }))
                   }
+                  placeholder="e.g. juan.delacruz"
+                  pattern="[a-z0-9][a-z0-9._\-]{2,29}"
+                  title={USERNAME_RULES}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
                   required
                 />
               </label>
@@ -399,10 +393,12 @@ export default function AdminUsersPage() {
                 </select>
               </label>
               <label className="split-grid__full">
-                Password
+                Password (at least 6 characters)
                 <input
                   className="input-field"
                   type="text"
+                  minLength={6}
+                  autoComplete="new-password"
                   value={newUser.password}
                   onChange={(event) =>
                     setNewUser((prev) => ({ ...prev, password: event.target.value }))

@@ -1,30 +1,32 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../app/AuthContext";
+import PublicMobileNav from "../components/PublicMobileNav";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const { login, authError } = useAuth();
+  const [form, setForm] = useState({ loginId: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const error = loginError || authError;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (event) => {
+  // On success the login route redirects once the user's role and data are loaded.
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setError("");
-    const result = login(form);
+    setLoginError("");
+    setSubmitting(true);
+    const result = await login(form);
+    setSubmitting(false);
     if (!result.ok) {
-      setError(result.error);
-      return;
+      setLoginError(result.error);
     }
-    navigate(result.user.role === "admin" ? "/admin/dashboard" : "/user/home", {
-      replace: true,
-    });
   };
 
   return (
@@ -60,31 +62,28 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Heading */}
-          <div className="sb-form-heading">
-            <h2 className="sb-form-title">Welcome back!</h2>
-            <p className="sb-form-sub">Please enter your details to sign in.</p>
-          </div>
-
           {/* Form */}
-          <form className="sb-form" onSubmit={handleSubmit}>
+          <form className="sb-form" aria-label="Sign in" aria-busy={submitting} onSubmit={handleSubmit}>
             <div className="sb-field-wrap">
-              <label className="sb-label" htmlFor="sb-email">Email Address</label>
+              <label className="sb-label" htmlFor="sb-username">Username</label>
               <div className="sb-input-wrap">
                 <span className="sb-input-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-                    <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    <circle cx="12" cy="8" r="4"/>
+                    <path d="M4 21a8 8 0 0 1 16 0"/>
                   </svg>
                 </span>
                 <input
-                  id="sb-email"
+                  id="sb-username"
                   className="sb-input"
-                  type="email"
-                  name="email"
-                  value={form.email}
+                  type="text"
+                  name="loginId"
+                  value={form.loginId}
                   onChange={handleChange}
-                  placeholder="Enter your email"
+                  placeholder="Enter your username"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   required
                 />
               </div>
@@ -104,6 +103,7 @@ export default function LoginPage() {
                   className="sb-input sb-input--pad-right"
                   type={showPassword ? "text" : "password"}
                   name="password"
+                  autoComplete="current-password"
                   value={form.password}
                   onChange={handleChange}
                   placeholder="Enter your password"
@@ -113,7 +113,8 @@ export default function LoginPage() {
                   type="button"
                   className="sb-eye-btn"
                   onClick={() => setShowPassword((v) => !v)}
-                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
@@ -132,7 +133,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="sb-error-box">
+              <div className="sb-error-box" role="alert">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
@@ -148,8 +149,9 @@ export default function LoginPage() {
               <span className="sb-forgot">Forgot password?</span>
             </div>
 
-            <button className="sb-signin-btn" type="submit">
-              Sign in
+            <button className="sb-signin-btn" type="submit" disabled={submitting}>
+              {submitting ? "Signing in..." : "Sign in"}
+              {!submitting && <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>}
             </button>
           </form>
 
@@ -175,6 +177,7 @@ export default function LoginPage() {
         </div>
       </div>
 
+      <PublicMobileNav />
     </div>
   );
 }

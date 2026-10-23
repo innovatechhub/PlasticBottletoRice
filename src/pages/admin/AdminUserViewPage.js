@@ -4,6 +4,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { useData } from "../../app/DataContext";
 import { tibiaoBarangays } from "../../constants/tibiaoBarangays";
 import Pagination from "../../components/Pagination";
+import { displayLoginId } from "../../services/firebaseClient";
 
 const BASE_URL = window.location.origin;
 const PAGE_SIZE = 10;
@@ -61,12 +62,14 @@ export default function AdminUserViewPage() {
 
   // Edit form state
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", email: "", weightKg: 0, password: "" });
+  const [editForm, setEditForm] = useState({ name: "", barangay: "", weightKg: 0 });
   const [editStatus, setEditStatus] = useState("");
   const [editError, setEditError] = useState("");
-
-  // Password visibility
-  const [showPassword, setShowPassword] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [resetStatus, setResetStatus] = useState("");
+  const [resetError, setResetError] = useState("");
 
   // QR ref for download
   const qrRef = useRef(null);
@@ -77,10 +80,8 @@ export default function AdminUserViewPage() {
     if (!household) return;
     setEditForm({
       name: household.name,
-      email: household.email,
       barangay: household.barangay || "",
       weightKg: household.weightKg ?? 0,
-      password: "",
     });
     setEditStatus("");
     setEditError("");
@@ -98,6 +99,24 @@ export default function AdminUserViewPage() {
     }
     setEditStatus("Account updated successfully.");
     setEditOpen(false);
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setResetStatus("");
+    setResetError("");
+    setResetting(true);
+    const result = await actions.resetResidentPassword(userId, newPassword);
+    setResetting(false);
+    if (!result.ok) {
+      setResetError(result.error);
+      return;
+    }
+    setNewPassword("");
+    setResetOpen(false);
+    setResetStatus(
+      `Password updated. ${household.name} was signed out and must use the new password.`
+    );
   };
 
   const handleDownloadQR = () => {
@@ -119,7 +138,7 @@ export default function AdminUserViewPage() {
       <html><head><title>QR Code — ${household?.name || ""}</title>
       <style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;gap:16px}
       img{width:260px;height:260px}p{color:#444;font-size:14px}</style></head>
-      <body><img src="${dataUrl}" /><p>${household?.name || ""}</p><p>${household?.email || ""}</p></body></html>
+      <body><img src="${dataUrl}" /><p>${household?.name || ""}</p><p>${displayLoginId(household)}</p></body></html>
     `);
     win.document.close();
     win.focus();
@@ -174,8 +193,8 @@ export default function AdminUserViewPage() {
                 <dd>{household.name}</dd>
               </div>
               <div className="hv-info-row">
-                <dt>Email</dt>
-                <dd>{household.email}</dd>
+                <dt>Username</dt>
+                <dd>{displayLoginId(household)}</dd>
               </div>
               <div className="hv-info-row">
                 <dt>Barangay</dt>
@@ -214,8 +233,8 @@ export default function AdminUserViewPage() {
             {!editOpen ? (
               <dl className="hv-info-list">
                 <div className="hv-info-row">
-                  <dt>Email</dt>
-                  <dd>{household.email}</dd>
+                  <dt>Username</dt>
+                  <dd>{displayLoginId(household)}</dd>
                 </div>
                 <div className="hv-info-row">
                   <dt>Barangay</dt>
@@ -224,18 +243,64 @@ export default function AdminUserViewPage() {
                 <div className="hv-info-row">
                   <dt>Password</dt>
                   <dd className="hv-password-row">
-                    <span>{showPassword ? (household.password || "—") : "••••••••"}</span>
-                    <button
-                      type="button"
-                      className="hv-show-btn"
-                      onClick={() => setShowPassword((v) => !v)}
-                    >
-                      {showPassword ? "Hide" : "Show"}
-                    </button>
+                    <span>••••••••</span>
+                    {!resetOpen && (
+                      <button
+                        type="button"
+                        className="hv-show-btn"
+                        onClick={() => {
+                          setResetOpen(true);
+                          setResetStatus("");
+                          setResetError("");
+                        }}
+                      >
+                        Set new password
+                      </button>
+                    )}
                   </dd>
                 </div>
               </dl>
-            ) : (
+            ) : null}
+
+            {!editOpen && resetOpen ? (
+              <form className="hv-edit-form" onSubmit={handleResetPassword}>
+                <label className="hv-label">
+                  New password <span className="hv-label-hint">(at least 6 characters)</span>
+                  <input
+                    className="input-field"
+                    type="text"
+                    minLength={6}
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                </label>
+                {resetError ? <p className="hv-error">{resetError}</p> : null}
+                <div className="hv-edit-actions">
+                  <button type="submit" className="btn-primary" disabled={resetting}>
+                    {resetting ? "Saving..." : "Save Password"}
+                  </button>
+                  <button
+                    type="button"
+                    className="outline-btn"
+                    onClick={() => {
+                      setResetOpen(false);
+                      setNewPassword("");
+                      setResetError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {!editOpen && resetStatus ? (
+              <p className="hv-label-hint">{resetStatus}</p>
+            ) : null}
+
+            {editOpen ? (
               <form className="hv-edit-form" onSubmit={handleSave}>
                 <label className="hv-label">
                   Name
@@ -243,16 +308,6 @@ export default function AdminUserViewPage() {
                     className="input-field"
                     value={editForm.name}
                     onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
-                    required
-                  />
-                </label>
-                <label className="hv-label">
-                  Email
-                  <input
-                    className="input-field"
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))}
                     required
                   />
                 </label>
@@ -287,16 +342,6 @@ export default function AdminUserViewPage() {
                     }
                   />
                 </label>
-                <label className="hv-label">
-                  New Password <span className="hv-label-hint">(leave blank to keep current)</span>
-                  <input
-                    className="input-field"
-                    type="text"
-                    value={editForm.password}
-                    placeholder="Enter new password"
-                    onChange={(e) => setEditForm((p) => ({ ...p, password: e.target.value }))}
-                  />
-                </label>
                 {editError ? <p className="hv-error">{editError}</p> : null}
                 <div className="hv-edit-actions">
                   <button type="submit" className="btn-primary">Save Changes</button>
@@ -309,7 +354,7 @@ export default function AdminUserViewPage() {
                   </button>
                 </div>
               </form>
-            )}
+            ) : null}
           </div>
         </div>
 

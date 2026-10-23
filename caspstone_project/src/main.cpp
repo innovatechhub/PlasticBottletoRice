@@ -6,11 +6,10 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
-#define WIFI_SSID         "KONEK."
-#define WIFI_PASSWORD     "1234567890"
-#define FIREBASE_API_KEY  "AIzaSyCD0HR0qKk5BDbT1xD8OGSn06Y_80MP3ZI"
-#define FIREBASE_DB_URL   "https://plastictorice-default-rtdb.firebaseio.com"
-#define BIN_ID            "bin_001"
+// WiFi, Firebase and device credentials. Copy include/secrets.example.h to
+// include/secrets.h and fill it in.
+#include "secrets.h"
+#include "firebase_root_ca.h"
 
 #define SERVO_PIN 13
 Servo pusherServo;
@@ -37,7 +36,14 @@ const unsigned long SETTLE_TIMEOUT_MS = 6000;
 const unsigned long SESSION_TIMEOUT_MS = 60000;
 
 String idToken = "";
-uint32_t tokenExpiry = 0;
+String refreshToken = "";
+unsigned long tokenObtainedAt = 0;
+unsigned long tokenLifetimeMs = 0;
+
+void useVerifiedTls(WiFiClientSecure& client)
+{
+  client.setCACert(FIREBASE_ROOT_CA);
+}
 
 void connectWiFi()
 {
@@ -64,28 +70,74 @@ void connectWiFi()
   }
 }
 
-bool refreshToken()
+void storeToken(const String& newIdToken, const String& newRefreshToken, const String& expiresIn)
+{
+  idToken = newIdToken;
+  if (newRefreshToken.length() > 0) refreshToken = newRefreshToken;
+  long seconds = expiresIn.toInt();
+  if (seconds <= 0) seconds = 3600;
+  tokenLifetimeMs = (unsigned long)(seconds - 60) * 1000UL;
+  tokenObtainedAt = millis();
+}
+
+// Signs in with this bin's device account (custom claim role=device, binId=BIN_ID).
+bool signInDevice()
 {
   WiFiClientSecure client;
-  client.setInsecure();
+  useVerifiedTls(client);
   HTTPClient http;
-  String url = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=";
+  String url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=";
   url += FIREBASE_API_KEY;
   http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
-  int code = http.POST("{\"returnSecureToken\":true}");
+
+  StaticJsonDocument<256> body;
+  body["email"] = DEVICE_EMAIL;
+  body["password"] = DEVICE_PASSWORD;
+  body["returnSecureToken"] = true;
+  String s;
+  serializeJson(body, s);
+
+  int code = http.POST(s);
   if (code != 200) {
-    Serial.printf("Auth failed (HTTP %d)\n", code);
+    Serial.printf("Device sign-in failed (HTTP %d)\n", code);
     http.end();
     return false;
   }
 
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(4096);
   deserializeJson(doc, http.getString());
   http.end();
-  idToken = doc["idToken"].as<String>();
-  uint32_t expiresIn = doc["expiresIn"] | 3600;
-  tokenExpiry = millis() + (expiresIn - 60) * 1000UL;
+  storeToken(doc["idToken"].as<String>(),
+             doc["refreshToken"].as<String>(),
+             doc["expiresIn"].as<String>());
+  Serial.println("Device signed in to Firebase.");
+  return idToken.length() > 0;
+}
+
+// Exchanges the refresh token for a new ID token without creating a new account.
+bool refreshIdToken()
+{
+  WiFiClientSecure client;
+  useVerifiedTls(client);
+  HTTPClient http;
+  String url = "https://securetoken.googleapis.com/v1/token?key=";
+  url += FIREBASE_API_KEY;
+  http.begin(client, url);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  int code = http.POST("grant_type=refresh_token&refresh_token=" + refreshToken);
+  if (code != 200) {
+    Serial.printf("Token refresh failed (HTTP %d)\n", code);
+    http.end();
+    return false;
+  }
+
+  DynamicJsonDocument doc(4096);
+  deserializeJson(doc, http.getString());
+  http.end();
+  storeToken(doc["id_token"].as<String>(),
+             doc["refresh_token"].as<String>(),
+             doc["expires_in"].as<String>());
   Serial.println("Firebase token refreshed.");
   return idToken.length() > 0;
 }
@@ -93,15 +145,16 @@ bool refreshToken()
 bool ensureToken()
 {
   if (WiFi.status() != WL_CONNECTED) return false;
-  if (idToken.isEmpty() || millis() > tokenExpiry) return refreshToken();
-  return true;
+  if (idToken.length() > 0 && millis() - tokenObtainedAt < tokenLifetimeMs) return true;
+  if (refreshToken.length() > 0 && refreshIdToken()) return true;
+  return signInDevice();
 }
 
 int rtdbGet(const String& path, String& payload)
 {
   if (!ensureToken()) return -1;
   WiFiClientSecure client;
-  client.setInsecure();
+  useVerifiedTls(client);
   HTTPClient http;
   http.begin(client, String(FIREBASE_DB_URL) + path + ".json?auth=" + idToken);
   int code = http.GET();
@@ -114,7 +167,7 @@ int rtdbPatch(const String& path, const String& body)
 {
   if (!ensureToken()) return -1;
   WiFiClientSecure client;
-  client.setInsecure();
+  useVerifiedTls(client);
   HTTPClient http;
   http.begin(client, String(FIREBASE_DB_URL) + path + ".json?auth=" + idToken);
   http.addHeader("Content-Type", "application/json");
@@ -127,7 +180,7 @@ int rtdbPost(const String& path, const String& body)
 {
   if (!ensureToken()) return -1;
   WiFiClientSecure client;
-  client.setInsecure();
+  useVerifiedTls(client);
   HTTPClient http;
   http.begin(client, String(FIREBASE_DB_URL) + path + ".json?auth=" + idToken);
   http.addHeader("Content-Type", "application/json");
@@ -173,8 +226,10 @@ bool patchBinCommand(const char* status,
                      const String& lastValidationMessage = "",
                      const String& lastValidationAt = "")
 {
-  StaticJsonDocument<384> body;
+  StaticJsonDocument<512> body;
   body["status"] = status;
+  // Server timestamp; the database rules free a bin whose session stops updating.
+  body["updatedAtMs"][".sv"] = "timestamp";
   if (lastWeightKg >= 0.0f) {
     body["weightKg"] = lastWeightKg;
     body["lastWeightKg"] = lastWeightKg;
@@ -215,8 +270,9 @@ RiceCommand checkRiceCommand()
 
 bool patchRiceCommand(const char* status)
 {
-  StaticJsonDocument<64> body;
+  StaticJsonDocument<128> body;
   body["status"] = status;
+  body["updatedAtMs"][".sv"] = "timestamp";
   String s;
   serializeJson(body, s);
   int code = rtdbPatch("/rice_commands/" BIN_ID, s);

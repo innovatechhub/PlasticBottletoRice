@@ -76,26 +76,39 @@ button {
 /* ── SmartBin Login Page ────────────────────────────────────────────────── */
 .sb-login-shell {
   min-height: 100vh;
+  min-height: 100dvh;
+  font-family: "Inter", sans-serif;
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
 
 /* Left — white form panel */
 .sb-login-left {
+  position: relative;
   background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48px 40px;
+  padding: 56px clamp(28px, 5vw, 80px);
+  min-width: 0;
 }
 
 .sb-login-left-inner {
-  width: min(420px, 100%);
+  width: min(400px, 100%);
   display: grid;
   gap: 28px;
+  min-width: 0;
+  padding: 32px;
+  border: 1px solid #e5ede7;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 16px 48px rgba(21, 66, 18, 0.06);
 }
 
 .sb-back-btn {
+  position: absolute;
+  top: 24px;
+  left: 24px;
   width: fit-content;
   display: inline-flex;
   align-items: center;
@@ -108,6 +121,7 @@ button {
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
+  margin-bottom: 12px;
   transition:
     transform 0.18s ease,
     background 0.18s ease,
@@ -129,18 +143,22 @@ button {
 .sb-logo-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
 }
 
 .sb-logo-icon {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #eff9f0;
   display: grid;
   place-items: center;
 }
 
 .sb-logo-text {
-  font-size: 1.35rem;
+  font-size: 1.45rem;
+  letter-spacing: -0.04em;
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
 }
@@ -156,29 +174,34 @@ button {
 /* Heading */
 .sb-form-heading {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .sb-form-title {
-  font-size: 1.65rem;
+  margin: 0;
+  font-size: clamp(1.6rem, 2.5vw, 2rem);
+  letter-spacing: -0.035em;
+  line-height: 1.2;
   font-family: "Space Grotesk", sans-serif;
   color: #111827;
 }
 
 .sb-form-sub {
+  margin: 0;
   color: #6b7280;
   font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 /* Form */
 .sb-form {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .sb-field-wrap {
   display: grid;
-  gap: 7px;
+  gap: 9px;
 }
 
 .sb-label {
@@ -205,13 +228,22 @@ button {
 .sb-input {
   width: 100%;
   padding: 12px 14px 12px 42px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 10px;
-  background: #ffffff;
+  border: 1px solid #dfe7e2;
+  border-radius: 12px;
+  background: #f8faf9;
   color: #111827;
-  font-size: 0.92rem;
   font: inherit;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  font-size: 0.9375rem;
+  min-height: 52px;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+}
+
+.sb-input:hover {
+  border-color: #b5cbbd;
+}
+
+.sb-input-wrap:focus-within .sb-input-icon {
+  color: #15803d;
 }
 
 .sb-input--pad-right {
@@ -219,6 +251,7 @@ button {
 }
 
 .sb-input:focus {
+  background: #ffffff;
   outline: none;
   border-color: #16a34a;
   box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12);
@@ -230,14 +263,17 @@ button {
 
 .sb-eye-btn {
   position: absolute;
-  right: 14px;
+  right: 4px;
   background: none;
   border: none;
   cursor: pointer;
   color: #9ca3af;
   display: grid;
   place-items: center;
-  padding: 0;
+  padding: 12px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
   line-height: 1;
 }
 
@@ -279,6 +315,7 @@ button {
   height: 16px;
   accent-color: #16a34a;
   cursor: pointer;
+  margin: 0;
 }
 
 .sb-forgot {
@@ -295,21 +332,54 @@ button {
 .sb-signin-btn {
   width: 100%;
   padding: 13px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: none;
-  background: #16a34a;
+  background: linear-gradient(135deg, #16a34a, #15803d);
   color: #ffffff;
-  font-size: 1rem;
-  font-weight: 700;
   font: inherit;
+  min-height: 50px;
   font-weight: 700;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 6px 16px rgba(21, 128, 61, 0.18);
   transition: background 0.18s, transform 0.15s;
 }
 
 .sb-signin-btn:hover {
   background: #15803d;
   transform: translateY(-1px);
+}
+
+.sb-signin-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(21, 128, 61, 0.14);
+}
+
+.sb-signin-btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-login-shell button,
+  .sb-login-shell input {
+    transition: none;
+  }
+}
+
+.sb-signin-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
+.sb-signin-btn:focus-visible,
+.sb-eye-btn:focus-visible,
+.sb-back-btn:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.35);
+  outline-offset: 3px;
 }
 
 /* Right — dark green image panel */
@@ -2522,8 +2592,8 @@ body.portal-modal-lock .household-nav {
   .sb-login-left {
     padding: 32px 20px;
     min-height: 100vh;
-    align-items: flex-start;
-    padding-top: 48px;
+    align-items: center;
+    padding-top: 88px;
   }
 
   .home-hero {

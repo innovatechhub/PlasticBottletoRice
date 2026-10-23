@@ -1,6 +1,99 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@600;700;800&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
 
+.public-mobile-nav {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .public-mobile-nav {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 90;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: #fbfdf9;
+    border-top: 1px solid #c9dac6;
+    box-shadow: 0 -4px 20px rgba(21, 66, 18, 0.08);
+  }
+
+  .public-mobile-nav .public-mobile-nav__link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 52px;
+    border-radius: 12px;
+    padding: 6px 4px;
+    color: #4a6549;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .public-mobile-nav .public-mobile-nav__link.is-active {
+    background: #d6f2cb;
+    color: #154212;
+  }
+
+  .public-mobile-nav__link:focus-visible {
+    outline: 2px solid #154212;
+    outline-offset: -2px;
+  }
+
+  .sb-login-shell {
+    min-height: 100dvh;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sb-login-shell .sb-login-left {
+    min-height: 0;
+    padding: 88px clamp(20px, 5vw, 32px) 48px;
+    align-items: center;
+  }
+
+  .sb-login-left-inner {
+    gap: 24px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .sb-login-shell .sb-back-btn {
+    top: 20px;
+    left: clamp(20px, 5vw, 32px);
+    margin-bottom: 0;
+    font-size: 0.8rem;
+    padding: 9px 12px;
+  }
+
+  .sb-login-shell .sb-form {
+    gap: 18px;
+  }
+
+  .sb-login-shell .sb-form-title {
+    font-size: 1.6rem;
+  }
+
+  .sb-login-shell .sb-remember,
+  .sb-login-shell .sb-forgot {
+    font-size: 0.75rem;
+  }
+
+  .sb-login-shell .sb-input {
+    font-size: 16px;
+  }
+
+  .sb-form-row {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
 .eco-landing {
   --bg: #eef6ec;
   --surface: #fbfdf9;
@@ -1195,6 +1288,10 @@
 }
 
 @media (max-width: 700px) {
+  .eco-landing {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
   .eco-landing__nav,
   .eco-landing__section-inner,
   .eco-landing__hero-inner,
@@ -1204,6 +1301,8 @@
   }
 
   .eco-landing__nav {
+    flex-direction: row;
+    align-items: center;
     min-height: auto;
     padding-top: 14px;
     padding-bottom: 14px;
@@ -1215,6 +1314,7 @@
   }
 
   .eco-landing__nav-links {
+    display: none;
     justify-content: center;
     gap: 10px 14px;
   }
@@ -1224,11 +1324,11 @@
   }
 
   .eco-landing__nav-actions {
-    width: 100%;
+    width: auto;
   }
 
   .eco-landing__btn--login {
-    width: 100%;
+    width: auto;
   }
 
   .eco-landing__hero {

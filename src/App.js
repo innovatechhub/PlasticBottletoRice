@@ -3,7 +3,9 @@ import { AuthProvider, useAuth } from "./app/AuthContext";
 import { DataProvider } from "./app/DataContext";
 import ProtectedRoute from "./app/ProtectedRoute";
 import AppLayout from "./components/Layout";
+import LoadingScreen from "./components/LoadingScreen";
 import "./App.css";
+import "./resident.css";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminHardwarePage from "./pages/admin/AdminHardwarePage";
 import AdminLogsPage from "./pages/admin/AdminLogsPage";
@@ -14,17 +16,10 @@ import AboutUsPage from "./pages/AboutUsPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RewardsPage from "./pages/RewardsPage";
+import UserAccountPage from "./pages/user/UserAccountPage";
 import UserHistoryPage from "./pages/user/UserHistoryPage";
 import UserHomePage from "./pages/user/UserHomePage";
 import UserRedeemPage from "./pages/user/UserRedeemPage";
-
-function LoadingScreen() {
-  return (
-    <div className="centered-screen">
-      <p>Loading system...</p>
-    </div>
-  );
-}
 
 function LoginRoute() {
   const { currentUser, loading } = useAuth();
@@ -65,7 +60,7 @@ function AppRoutes() {
         path="/user/home"
         element={
           <ProtectedRoute allowedRoles={["user"]}>
-            <AppLayout title="Household Dashboard">
+            <AppLayout title="Home">
               <UserHomePage />
             </AppLayout>
           </ProtectedRoute>
@@ -91,12 +86,22 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/user/account"
+        element={
+          <ProtectedRoute allowedRoles={["user"]}>
+            <AppLayout title="Account">
+              <UserAccountPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/admin/dashboard"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AppLayout title="Admin Dashboard">
+            <AppLayout title="Dashboard">
               <AdminDashboardPage />
             </AppLayout>
           </ProtectedRoute>
@@ -106,7 +111,7 @@ function AppRoutes() {
         path="/admin/users"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AppLayout title="User Management">
+            <AppLayout title="Residents">
               <AdminUsersPage />
             </AppLayout>
           </ProtectedRoute>
@@ -116,7 +121,7 @@ function AppRoutes() {
         path="/admin/users/:userId"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AppLayout title="Household Profile">
+            <AppLayout title="Resident profile">
               <AdminUserViewPage />
             </AppLayout>
           </ProtectedRoute>
@@ -126,7 +131,7 @@ function AppRoutes() {
         path="/admin/logs"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AppLayout title="Logs and Reports">
+            <AppLayout title="Logs">
               <AdminLogsPage />
             </AppLayout>
           </ProtectedRoute>
@@ -136,7 +141,7 @@ function AppRoutes() {
         path="/admin/hardware"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AppLayout title="Hardware Readings">
+            <AppLayout title="Hardware">
               <AdminHardwarePage />
             </AppLayout>
           </ProtectedRoute>
@@ -146,7 +151,7 @@ function AppRoutes() {
         path="/admin/storage"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AppLayout title="Storage Monitor">
+            <AppLayout title="Storage">
               <AdminStoragePage />
             </AppLayout>
           </ProtectedRoute>

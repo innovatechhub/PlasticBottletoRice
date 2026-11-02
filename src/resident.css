@@ -1,0 +1,2066 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap");
+
+/* ===== Resident and public pages: minimal white theme =====
+   Loaded after index.css and App.css, so these rules win over the older
+   green resident styles. Admin pages don't use these classes. */
+
+:root {
+  --res-bg: #ffffff;
+  --res-bg-soft: #f5f6f6;
+  --res-ink: #16191a;
+  --res-ink-2: #565d63;
+  --res-border: #e2e5e7;
+  --res-green: #1d7a3a;
+  --res-green-hover: #17642f;
+  --res-green-soft: #ebf5ee;
+  --res-red: #b42318;
+  --res-red-soft: #fef3f2;
+  --res-radius: 12px;
+  --res-btn-height: 48px;
+  --res-font: "Inter", system-ui, sans-serif;
+}
+
+/* Signed-in residents: near-black on white, warm neutrals, and green only for
+   actions and success. Scoped here so Login and public pages keep their look. */
+.eco-user-shell {
+  --res-bg-soft: #f5f4f0;
+  --res-ink: #171a17;
+  --res-ink-2: #5c625d;
+  --res-border: #e6e4de;
+  --res-green: #176b3a;
+  --res-green-hover: #115530;
+  --res-green-soft: #eaf3ed;
+  --res-btn-height: 52px;
+  --res-radius: 14px;
+  --res-font: "Figtree", "Inter", system-ui, sans-serif;
+  --res-display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+  --res-rice: #ecdfc0;
+  --res-rice-grain: #d5c192;
+}
+
+/* Buttons */
+.eco-btn {
+  min-height: var(--res-btn-height);
+  border-radius: var(--res-radius);
+  border-width: 1px;
+  font-family: var(--res-font);
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.eco-btn:focus-visible,
+.eco-text-btn:focus-visible,
+.eco-amount:focus-visible,
+.pub-brand:focus-visible,
+.pub-header__link:focus-visible,
+.eco-user-nav__brand:focus-visible,
+.eco-user-nav__link:focus-visible,
+.public-mobile-nav .public-mobile-nav__link:focus-visible {
+  outline: 2px solid var(--res-ink);
+  outline-offset: 2px;
+}
+
+.eco-btn--primary {
+  background: var(--res-green);
+  border-color: var(--res-green);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.eco-btn--primary:hover:not(:disabled) {
+  background: var(--res-green-hover);
+  box-shadow: none;
+}
+
+.eco-btn--secondary {
+  background: var(--res-bg);
+  border-color: var(--res-border);
+  color: var(--res-ink);
+}
+
+.eco-btn--secondary:hover {
+  border-color: var(--res-ink-2);
+}
+
+/* Pressed feedback: phones have no hover, so every tap shows a change at once. */
+.eco-btn,
+.eco-amount,
+.eco-text-btn,
+.eco-user-nav__link,
+.public-mobile-nav .public-mobile-nav__link,
+.pub-header__link {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.eco-btn--primary:active:not(:disabled) {
+  background: var(--res-green-hover);
+}
+
+.eco-btn--secondary:active:not(:disabled),
+.eco-amount:active:not(:disabled),
+.eco-text-btn:active,
+.public-mobile-nav .public-mobile-nav__link:active {
+  background: var(--res-bg-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .eco-btn,
+  .eco-amount {
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+  }
+
+  .eco-btn:active:not(:disabled),
+  .eco-amount:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.eco-btn:disabled {
+  background: var(--res-bg-soft);
+  border-color: var(--res-border);
+  color: #6b7277;
+}
+
+.eco-btn--large {
+  min-height: 56px;
+  font-size: 1.0625rem;
+}
+
+.eco-btn--dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--res-ink);
+  border-color: var(--res-ink);
+  color: #ffffff;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.eco-btn--dark:active {
+  background: #000000;
+}
+
+.eco-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--res-radius);
+  background: transparent;
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.eco-text-btn:hover {
+  background: var(--res-bg-soft);
+}
+
+/* Loading screen */
+.eco-loading {
+  background: var(--res-bg);
+  color: var(--res-ink-2);
+  font-family: var(--res-font);
+}
+
+.eco-loading__bar {
+  background: var(--res-bg);
+  color: var(--res-ink);
+  border-bottom: 1px solid var(--res-border);
+  font-family: var(--res-font);
+  font-weight: 700;
+}
+
+.eco-loading__bar .eco-brand-mark {
+  color: var(--res-green);
+}
+
+.eco-loading__block {
+  border-radius: var(--res-radius);
+  background: linear-gradient(90deg, #eef0f1 0%, #f6f7f7 50%, #eef0f1 100%);
+  background-size: 200% 100%;
+}
+
+/* Signed-in shell */
+.household-shell.eco-user-shell {
+  background: var(--res-bg);
+  color: var(--res-ink);
+  font-family: var(--res-font);
+}
+
+.eco-user-nav {
+  min-height: 60px;
+  padding: 8px 16px;
+  background: var(--res-bg);
+  border-bottom: 1px solid var(--res-border);
+}
+
+.eco-user-nav__brand {
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.eco-user-nav__brand .eco-brand-mark {
+  color: var(--res-green);
+}
+
+.eco-user-nav__link {
+  border-radius: var(--res-radius);
+  color: var(--res-ink-2);
+  font-weight: 600;
+}
+
+.eco-user-nav__link:hover {
+  color: var(--res-ink);
+}
+
+/* Active: bold and green together, so it never depends on colour alone. */
+.eco-user-nav__link.is-active {
+  background: var(--res-green-soft);
+  color: var(--res-green);
+  font-weight: 700;
+}
+
+.eco-user-main {
+  min-height: calc(100vh - 60px);
+}
+
+/* Shared page structure */
+.eco-home__inner,
+.eco-page {
+  width: min(520px, calc(100% - 32px));
+  padding-top: 24px;
+  gap: 24px;
+}
+
+.eco-home__greeting,
+.eco-page__title {
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.eco-inline-error {
+  border-radius: var(--res-radius);
+  background: var(--res-red-soft);
+  border-color: #fecdca;
+  color: var(--res-red);
+  font-weight: 600;
+}
+
+.eco-field {
+  color: var(--res-ink);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.eco-field__input {
+  min-height: var(--res-btn-height);
+  border: 1px solid var(--res-border);
+  border-radius: var(--res-radius);
+  color: var(--res-ink);
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.eco-field__input:focus-visible {
+  border-color: var(--res-ink);
+  box-shadow: none;
+  outline: 2px solid var(--res-ink);
+  outline-offset: 0;
+}
+
+/* Home */
+.eco-home {
+  padding-bottom: 0;
+}
+
+.eco-home__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eco-home__mark {
+  flex: none;
+  color: var(--res-green);
+}
+
+.eco-balance {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.eco-balance__label {
+  margin: 0;
+  color: var(--res-ink-2);
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+
+.eco-balance__value {
+  margin: 0;
+  color: var(--res-ink);
+  font-family: var(--res-display);
+  font-size: clamp(3.5rem, 19vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-balance__next {
+  margin: 0;
+  color: var(--res-ink);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-balance__cta,
+.eco-balance__insert {
+  justify-self: stretch;
+}
+
+.eco-balance__insert {
+  margin-top: 16px;
+}
+
+.eco-balance__cta + .eco-balance__insert {
+  margin-top: 10px;
+}
+
+
+/* The rice bowl: fills toward the smallest amount that can be redeemed. */
+.eco-rice {
+  background-color: var(--res-rice);
+  background-image:
+    radial-gradient(ellipse 4px 2px at 12px 8px, var(--res-rice-grain) 98%, transparent),
+    radial-gradient(ellipse 4px 2px at 28px 20px, var(--res-rice-grain) 98%, transparent);
+  background-size: 38px 28px;
+}
+
+.eco-bowl {
+  position: relative;
+  width: min(250px, 68vw);
+  margin: 34px 0 18px;
+}
+
+.eco-bowl__heap {
+  position: absolute;
+  top: -24px;
+  left: 12%;
+  width: 76%;
+  height: 48px;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+}
+
+.eco-bowl__body {
+  position: relative;
+  display: block;
+  aspect-ratio: 2 / 1;
+  overflow: hidden;
+  border: 3px solid var(--res-ink);
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: var(--res-bg-soft);
+}
+
+.eco-bowl__fill {
+  position: absolute;
+  inset: auto 0 0;
+}
+
+.eco-bowl__foot {
+  display: block;
+  width: 34%;
+  height: 10px;
+  margin: 0 auto;
+  border-radius: 0 0 8px 8px;
+  background: var(--res-ink);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .eco-bowl__fill {
+    transition: height 0.5s ease;
+  }
+}
+
+/* Three short numbers under the bowl. */
+.eco-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 14px 0;
+  border-top: 1px solid var(--res-border);
+  border-bottom: 1px solid var(--res-border);
+}
+
+.eco-stats div {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.eco-stats dt {
+  color: var(--res-ink-2);
+  font-size: 0.8125rem;
+}
+
+.eco-stats dd {
+  margin: 0;
+  color: var(--res-ink);
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What a new household does first. */
+.eco-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 18px 0;
+  list-style: none;
+  counter-reset: eco-step;
+  border-top: 1px solid var(--res-border);
+  border-bottom: 1px solid var(--res-border);
+}
+
+.eco-steps li {
+  counter-increment: eco-step;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--res-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.eco-steps li::before {
+  content: counter(eco-step);
+  font-family: var(--res-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Shared: one short status line (progress, unavailable, results, empty). */
+.eco-status {
+  margin: 0;
+  color: var(--res-ink-2);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-status--success {
+  color: var(--res-green);
+  font-weight: 600;
+}
+
+/* Shared: a section with a short heading and an optional link on the right. */
+.eco-section {
+  display: grid;
+  gap: 8px;
+}
+
+.eco-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eco-section__title {
+  margin: 0;
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.eco-section__head .eco-text-btn {
+  margin-right: -8px;
+}
+
+.eco-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.eco-rows {
+  margin: 0;
+  border-top: 1px solid var(--res-border);
+}
+
+.eco-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--res-border);
+}
+
+.eco-row dt {
+  color: var(--res-ink-2);
+  font-weight: 500;
+}
+
+.eco-row dd {
+  margin: 0;
+  color: var(--res-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Redeem */
+.eco-summary {
+  display: grid;
+  gap: 2px;
+}
+
+.eco-summary__balance {
+  margin: 0;
+}
+
+.eco-summary__balance dt {
+  color: var(--res-ink-2);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.eco-summary__balance dd {
+  margin: 0;
+  color: var(--res-ink);
+  font-family: var(--res-display);
+  font-size: clamp(3rem, 15vw, 3.75rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-summary__note {
+  margin: 0;
+  color: var(--res-ink-2);
+  font-size: 0.875rem;
+}
+
+.eco-summary .eco-rows,
+.eco-summary .eco-field {
+  margin-top: 20px;
+}
+
+.eco-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.eco-panel__title {
+  margin: 0;
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.eco-panel__title:focus {
+  outline: none;
+}
+
+.eco-row dd.is-empty {
+  color: var(--res-red);
+}
+
+.eco-amounts {
+  gap: 12px;
+}
+
+.eco-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 128px;
+  padding: 16px;
+  border: 2px solid var(--res-border);
+  border-radius: 16px;
+  background: var(--res-bg);
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  text-align: left;
+}
+
+.eco-amount__value {
+  font-family: var(--res-display);
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-amount__hint {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-amount.is-selected {
+  border-color: var(--res-green);
+  background: var(--res-green-soft);
+  box-shadow: none;
+  color: var(--res-ink);
+}
+
+.eco-amount:disabled {
+  border-style: solid;
+  background: var(--res-bg-soft);
+  color: var(--res-ink-2);
+  opacity: 1;
+}
+
+.eco-confirm {
+  margin: 0;
+}
+
+.eco-confirm div {
+  border-bottom-color: var(--res-border);
+}
+
+.eco-confirm dt {
+  color: var(--res-ink-2);
+  font-weight: 500;
+}
+
+.eco-confirm dd {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-sheet--plain .eco-status {
+  margin-top: 12px;
+}
+
+/* Dispensing, done and failed take the whole screen: nothing else matters then. */
+.eco-page .eco-result {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-rows: 1fr auto auto auto 1fr;
+  justify-items: center;
+  gap: 12px;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: var(--res-bg);
+  text-align: center;
+}
+
+.eco-page .eco-result > :first-child {
+  grid-row: 2;
+}
+
+.eco-page .eco-result .eco-sheet__status {
+  width: 80px;
+  height: 80px;
+  font-size: 2.25rem;
+}
+
+.eco-page .eco-result .eco-panel__title {
+  font-family: var(--res-display);
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.eco-page .eco-result .eco-status {
+  max-width: 34ch;
+}
+
+.eco-page .eco-result .eco-action-bar {
+  position: static;
+  grid-row: 5;
+  align-self: end;
+  justify-self: stretch;
+  width: min(440px, 100%);
+  margin: 0 auto;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+/* Redeem's actions sit in the page on wider screens; on phones the action
+   bar is pinned above the bottom nav, in the thumb zone, as on Home. */
+.eco-page .eco-action-bar {
+  width: auto;
+  margin: 0;
+}
+
+/* History */
+.eco-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.eco-chip {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--res-border);
+  border-radius: 22px;
+  background: var(--res-bg);
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.eco-chip.is-active {
+  border-color: var(--res-ink);
+  background: var(--res-ink);
+  color: #ffffff;
+}
+
+.eco-chip:focus-visible {
+  outline: 2px solid var(--res-ink);
+  outline-offset: 2px;
+}
+
+.eco-activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--res-border);
+}
+
+.eco-activity__row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--res-border);
+}
+
+.eco-activity__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--res-bg-soft);
+  color: var(--res-ink);
+  font-size: 22px;
+}
+
+.eco-activity__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.eco-activity__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--res-ink);
+  font-weight: 600;
+}
+
+.eco-activity__meta {
+  color: var(--res-ink-2);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-activity__amount {
+  color: var(--res-ink);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.eco-activity__amount.is-gain {
+  color: var(--res-green);
+}
+
+/* Column labels only appear on wide screens. */
+.eco-history__head {
+  display: none;
+}
+
+.eco-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  color: var(--res-ink-2);
+  text-align: center;
+  border-top: 1px solid var(--res-border);
+  border-bottom: 1px solid var(--res-border);
+}
+
+.eco-empty__icon {
+  width: 32px;
+  height: 32px;
+  color: #9aa1a6;
+}
+
+/* Insert Bottle sheet and status marks */
+.eco-sheet-backdrop {
+  background: rgba(22, 25, 26, 0.45);
+}
+
+.eco-sheet {
+  border-radius: 16px;
+  padding: 24px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--res-bg);
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  gap: 12px;
+}
+
+.eco-sheet__status {
+  width: 48px;
+  height: 48px;
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+
+.eco-sheet__status--busy,
+.eco-sheet__status--neutral,
+.eco-sheet__status--warning {
+  background: var(--res-bg-soft);
+  color: var(--res-ink);
+}
+
+.eco-sheet__status--ready,
+.eco-sheet__status--success {
+  background: var(--res-green-soft);
+  color: var(--res-green);
+}
+
+.eco-sheet__status--error {
+  background: var(--res-red-soft);
+  color: var(--res-red);
+}
+
+.eco-sheet__title {
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.eco-sheet__text {
+  color: var(--res-ink-2);
+}
+
+.eco-sheet__amount {
+  color: var(--res-green);
+  font-family: var(--res-font);
+  font-size: 2.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-sheet__stats div {
+  border: 1px solid var(--res-border);
+  border-radius: var(--res-radius);
+  background: var(--res-bg);
+}
+
+.eco-sheet__stats dt {
+  color: var(--res-ink-2);
+  font-weight: 500;
+}
+
+.eco-sheet__stats dd {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-sheet__notice {
+  border-radius: var(--res-radius);
+  background: var(--res-red-soft);
+  border-color: #fecdca;
+  color: var(--res-red);
+  font-weight: 600;
+}
+
+.eco-sheet__bin {
+  color: var(--res-ink-2);
+  font-weight: 500;
+}
+
+.eco-spinner {
+  border-color: #e2e5e7;
+  border-top-color: var(--res-green);
+}
+
+/* Bottom navigation (phones) */
+.public-mobile-nav {
+  background: var(--res-bg);
+  border-top: 1px solid var(--res-border);
+  box-shadow: none;
+  font-family: var(--res-font);
+}
+
+.public-mobile-nav .public-mobile-nav__link {
+  min-height: 52px;
+  color: var(--res-ink-2);
+  font-weight: 500;
+}
+
+/* Residents have four items; one column each, so each stays ≥ 70 px wide at 320 px. */
+.eco-user-shell .public-mobile-nav {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.public-mobile-nav .public-mobile-nav__link.is-active {
+  background: transparent;
+  color: var(--res-green);
+  font-weight: 700;
+}
+
+/* The active tab: a green circle slides along the menu, and the tab's icon rises
+   into it. --active-index is set by PublicMobileNav. Each step of the slide is one
+   tab plus the 4 px gap between tabs. */
+.public-mobile-nav__slider {
+  --tab-width: calc((100vw - 16px - (var(--tab-count) - 1) * 4px) / var(--tab-count));
+  position: absolute;
+  top: -24px;
+  left: 8px;
+  width: var(--tab-width);
+  height: 60px;
+  transform: translateX(calc(var(--active-index, 0) * (var(--tab-width) + 4px)));
+  transition: transform 0.34s cubic-bezier(0.34, 1.3, 0.64, 1);
+  pointer-events: none;
+}
+
+.public-mobile-nav__slider::before {
+  content: "";
+  display: block;
+  box-sizing: border-box;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto;
+  border: 4px solid var(--res-bg);
+  border-radius: 50%;
+  background: var(--res-green);
+}
+
+.eco-user-shell .public-mobile-nav .public-mobile-nav__link {
+  position: relative;
+  z-index: 1;
+}
+
+.eco-user-shell .public-mobile-nav .public-mobile-nav__link.is-active .material-symbols-outlined {
+  color: #ffffff;
+  transform: translateY(-18px);
+  animation: eco-tab-rise 0.34s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes eco-tab-rise {
+  from {
+    color: var(--res-ink-2);
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-mobile-nav__slider {
+    transition: none;
+  }
+
+  .eco-user-shell .public-mobile-nav .public-mobile-nav__link.is-active .material-symbols-outlined {
+    animation: none;
+  }
+}
+
+@media (max-width: 700px) {
+  /* Phones have the bottom menu, so the top bar would only repeat the name. */
+  .eco-user-nav {
+    display: none;
+  }
+
+  .eco-user-main {
+    min-height: 100dvh;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .eco-home__inner,
+  .eco-page {
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  }
+
+  .eco-action-bar {
+    background: var(--res-bg);
+    border-top: 1px solid var(--res-border);
+  }
+
+  /* The extra bottom padding clears the raised active tab. */
+  .eco-page .eco-action-bar {
+    margin: 0;
+    padding: 12px 16px 38px;
+  }
+
+  .eco-action-bar {
+    gap: 8px;
+  }
+
+  /* Room for the pinned bar. */
+  .eco-redeem {
+    padding-bottom: 96px;
+  }
+
+  /* Bottom sheet on phones: full width, flush with the bottom edge. */
+  .eco-sheet-backdrop {
+    padding: 0;
+  }
+
+  .eco-sheet {
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+  }
+}
+
+/* Phones show two recent activities; wide screens show all four. */
+@media (max-width: 959px) {
+  .eco-home .eco-activity__row:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+/* Short phones (e.g. 320 × 568): a pinned bar would hide the amount options,
+   so Redeem's actions stay in the page there. Home keeps Insert Bottle pinned. */
+@media (max-width: 700px) and (max-height: 640px) {
+  .eco-page .eco-action-bar {
+    position: static;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .eco-redeem {
+    padding-bottom: 0;
+  }
+}
+
+/* Long values wrap instead of pushing the row wider than the screen. */
+.eco-row dt {
+  flex: none;
+}
+
+.eco-row dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+/* Tappable rows share the information rows' height and dividers. */
+.eco-rows--list {
+  list-style: none;
+  padding: 0;
+}
+
+.eco-row--action {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--res-border);
+  background: transparent;
+  color: var(--res-ink);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.eco-row--action:active {
+  background: var(--res-bg-soft);
+}
+
+.eco-row--action:focus-visible {
+  outline: 2px solid var(--res-ink);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.eco-row__icon,
+.eco-row__chevron {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--res-ink-2);
+}
+
+.eco-row__label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Account */
+.eco-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.eco-avatar {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--res-ink);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-family: var(--res-display);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.eco-profile__text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.eco-profile__name {
+  margin: 0;
+  color: var(--res-ink);
+  font-family: var(--res-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.eco-profile__meta {
+  margin: 0;
+  color: var(--res-ink-2);
+  font-size: 0.9375rem;
+}
+
+.eco-qr-button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 84px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--res-ink);
+  color: #ffffff;
+  font-family: var(--res-font);
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.eco-qr-button:active {
+  background: #000000;
+}
+
+.eco-qr-button:focus-visible {
+  outline: 2px solid var(--res-ink);
+  outline-offset: 2px;
+}
+
+.eco-qr-button__icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+.eco-qr-button .eco-row__chevron {
+  color: #ffffff;
+}
+
+/* Help continues the details list directly above it. */
+.eco-rows--joined {
+  border-top: 0;
+}
+
+.eco-rows:has(+ .eco-rows--joined) {
+  margin-bottom: -8px;
+}
+
+.eco-account__logout {
+  justify-self: start;
+  margin-left: -12px;
+  color: var(--res-ink-2);
+  font-weight: 500;
+}
+
+.eco-account__logout:active {
+  background: var(--res-bg-soft);
+}
+
+/* Dialogs built with <Sheet>: left-aligned, title with a Close button. */
+.eco-sheet--plain {
+  text-align: left;
+}
+
+.eco-sheet--plain:focus {
+  outline: none;
+}
+
+.eco-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.eco-sheet__head .eco-sheet__title {
+  margin: 0;
+  min-width: 0;
+}
+
+.eco-icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  border: 0;
+  border-radius: var(--res-radius);
+  background: transparent;
+  color: var(--res-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.eco-icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.eco-icon-btn:active {
+  background: var(--res-bg-soft);
+}
+
+.eco-icon-btn:focus-visible {
+  outline: 2px solid var(--res-ink);
+  outline-offset: 0;
+}
+
+.eco-sheet__body:empty {
+  display: none;
+}
+
+/* Insert Bottle: full screen on phones, a large card on wider screens. */
+.eco-insert .eco-sheet {
+  width: min(460px, 100%);
+  min-height: min(640px, calc(100vh - 32px));
+  grid-template-rows: auto 1fr auto;
+  gap: 20px;
+  box-shadow: none;
+}
+
+.eco-insert__head {
+  display: grid;
+  gap: 12px;
+}
+
+.eco-insert__head .eco-sheet__bin {
+  margin: 0;
+  color: var(--res-ink);
+  font-weight: 700;
+}
+
+.eco-insert__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eco-insert__steps li {
+  display: grid;
+  gap: 8px;
+  color: var(--res-ink-2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.eco-insert__steps li::before {
+  content: "";
+  height: 5px;
+  border-radius: 3px;
+  background: var(--res-border);
+}
+
+.eco-insert__steps li.is-reached {
+  color: var(--res-ink);
+}
+
+.eco-insert__steps li.is-reached::before {
+  background: var(--res-green);
+}
+
+.eco-insert__body {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+.eco-insert .eco-sheet__status {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 8px;
+  font-size: 2.25rem;
+}
+
+.eco-insert .eco-spinner {
+  width: 40px;
+  height: 40px;
+}
+
+.eco-insert .eco-sheet__title {
+  margin: 0;
+  font-family: var(--res-display);
+  font-size: 1.875rem;
+  line-height: 1.15;
+}
+
+.eco-insert .eco-sheet__text {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.eco-insert .eco-sheet__amount {
+  margin: 0;
+  color: var(--res-ink);
+  font-family: var(--res-display);
+  font-size: 4.5rem;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.eco-insert__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 8px;
+  width: 100%;
+  margin: 12px 0 0;
+}
+
+.eco-insert__stats div {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+}
+
+.eco-insert__stats .eco-insert__count {
+  grid-column: 1 / -1;
+}
+
+.eco-insert__stats dt {
+  color: var(--res-ink-2);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.eco-insert__stats dd {
+  margin: 0;
+  color: var(--res-ink);
+  font-size: 1.375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.eco-insert__stats .eco-insert__count dd {
+  font-family: var(--res-display);
+  font-size: clamp(5rem, 28vw, 7rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.eco-insert .eco-sheet__notice {
+  width: 100%;
+  margin: 8px 0 0;
+}
+
+.eco-qr-view {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.eco-qr {
+  padding: 8px;
+  border: 1px solid var(--res-border);
+  border-radius: var(--res-radius);
+  background: #ffffff;
+}
+
+.eco-qr canvas {
+  display: block;
+}
+
+.eco-qr-view__name {
+  margin: 0;
+  color: var(--res-ink);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.eco-dev-note {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px dashed var(--res-border);
+  border-radius: var(--res-radius);
+  color: var(--res-ink-2);
+  font-size: 0.8125rem;
+}
+
+.eco-faq {
+  margin: 0;
+}
+
+.eco-faq div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--res-border);
+}
+
+.eco-faq div:last-child {
+  border-bottom: 0;
+}
+
+.eco-faq dt {
+  color: var(--res-ink);
+  font-weight: 600;
+}
+
+.eco-faq dd {
+  margin: 4px 0 0;
+  color: var(--res-ink-2);
+  line-height: 1.45;
+}
+
+/* Full-screen sheet on phones (the QR code): content centred, action at the bottom. */
+@media (max-width: 700px) {
+  .eco-sheet--full {
+    height: 100%;
+    max-height: none;
+    min-height: 0;
+    border-radius: 0;
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .eco-sheet--full .eco-sheet__body {
+    display: grid;
+    align-content: center;
+  }
+}
+
+/* Public pages */
+.pub {
+  min-height: 100vh;
+  background: var(--res-bg);
+  color: var(--res-ink);
+  font-family: var(--res-font);
+}
+
+.pub-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--res-bg);
+  border-bottom: 1px solid var(--res-border);
+}
+
+.pub-header__inner {
+  width: min(1040px, calc(100% - 32px));
+  min-height: 60px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.pub-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: 8px;
+  color: var(--res-ink);
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pub-brand .eco-brand-mark {
+  color: var(--res-green);
+}
+
+.pub-header__links {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.pub-header__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--res-radius);
+  color: var(--res-ink-2);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.pub-header__link:hover {
+  color: var(--res-ink);
+}
+
+.pub-header__link.is-active {
+  color: var(--res-ink);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--res-green);
+  border-radius: 0;
+}
+
+.pub-main {
+  width: min(1040px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 64px;
+  display: grid;
+  gap: 48px;
+}
+
+.pub-hero {
+  display: grid;
+  gap: 32px;
+  align-items: center;
+}
+
+.pub-hero__text {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.pub-title {
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: clamp(2.25rem, 9vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.pub-lead {
+  max-width: 34ch;
+  color: var(--res-ink-2);
+  font-size: 1.125rem;
+  line-height: 1.5;
+}
+
+.pub-hero__cta {
+  margin-top: 12px;
+  min-width: 160px;
+}
+
+.pub-hero__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: var(--res-radius);
+}
+
+.pub-section {
+  display: grid;
+  gap: 16px;
+}
+
+.pub-section__title {
+  color: var(--res-ink);
+  font-family: var(--res-font);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Collect, insert, redeem: a real sequence, so it's numbered. */
+.pub-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: pub-step;
+  border-top: 1px solid var(--res-border);
+}
+
+.pub-steps__item {
+  counter-increment: pub-step;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  border-bottom: 1px solid var(--res-border);
+  color: var(--res-ink);
+  font-weight: 500;
+}
+
+.pub-steps__item::before {
+  content: counter(pub-step);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--res-border);
+  border-radius: 50%;
+  color: var(--res-ink-2);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pub-rows {
+  margin: 0;
+  border-top: 1px solid var(--res-border);
+}
+
+.pub-rows__item {
+  display: grid;
+  gap: 4px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--res-border);
+}
+
+.pub-rows__item dt {
+  color: var(--res-ink);
+  font-weight: 600;
+}
+
+.pub-rows__item dd {
+  margin: 0;
+  color: var(--res-ink-2);
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .pub-main {
+    padding-top: 64px;
+  }
+
+  .pub-hero {
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+
+  .pub-hero--text {
+    grid-template-columns: 1fr;
+  }
+
+  .pub-hero__image {
+    max-height: 340px;
+  }
+
+  .pub-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    border-top: 0;
+  }
+
+  .pub-steps__item {
+    border-top: 1px solid var(--res-border);
+  }
+
+  .pub-rows {
+    max-width: 640px;
+  }
+}
+
+@media (max-width: 700px) {
+  .pub-header__links {
+    display: none;
+  }
+
+  .pub-header__inner > .eco-text-btn {
+    margin-left: auto;
+  }
+
+  /* Clear the bottom navigation. */
+  .pub-main {
+    padding: 24px 0 calc(96px + env(safe-area-inset-bottom, 0px));
+    gap: 32px;
+  }
+}
+
+/* Login: white layout, green only on the mark and the Sign in button */
+.sb-login-left-inner {
+  border-color: var(--res-border);
+  box-shadow: none;
+}
+
+.sb-logo-icon {
+  background: var(--res-bg-soft);
+  color: var(--res-green);
+}
+
+.sb-logo-plus,
+.sb-logo-name {
+  color: var(--res-ink);
+}
+
+.sb-back-btn {
+  border-color: var(--res-border);
+  background: var(--res-bg);
+  color: var(--res-ink);
+}
+
+.sb-input {
+  background: var(--res-bg);
+  border-color: var(--res-border);
+}
+
+.sb-input:hover {
+  border-color: #c4c9cd;
+}
+
+.sb-input:focus {
+  border-color: var(--res-ink);
+  box-shadow: 0 0 0 1px var(--res-ink);
+}
+
+.sb-input-wrap:focus-within .sb-input-icon {
+  color: var(--res-ink);
+}
+
+.sb-forgot {
+  color: var(--res-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sb-signin-btn,
+.sb-signin-btn:disabled {
+  background: var(--res-green);
+  border-radius: var(--res-radius);
+  box-shadow: none;
+}
+
+.sb-signin-btn:hover:not(:disabled) {
+  background: var(--res-green-hover);
+}
+
+.sb-signin-btn:active {
+  box-shadow: none;
+}
+
+.sb-help {
+  background: var(--res-bg-soft);
+  border-color: var(--res-border);
+  color: var(--res-ink);
+}
+
+.sb-newcomer {
+  color: var(--res-ink-2);
+}
+
+@media (max-width: 767px) {
+  .sb-mobile-hero {
+    align-items: center;
+    min-height: 60px;
+    padding: 8px 16px;
+    background: var(--res-bg);
+    border-bottom: 1px solid var(--res-border);
+  }
+
+  .sb-mobile-hero__brand {
+    color: var(--res-ink);
+    font-family: var(--res-font);
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+
+  .sb-mobile-hero__brand .eco-brand-mark {
+    color: var(--res-green);
+  }
+
+  .sb-mobile-hero__brand:focus-visible {
+    outline: 2px solid var(--res-ink);
+  }
+}
+
+/* Resident web view: wide screens use the extra room instead of a phone column. */
+@media (min-width: 701px) {
+  .eco-user-nav__links {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    margin-left: 0;
+  }
+
+  .eco-insert .eco-sheet,
+  .eco-sheet--plain {
+    border-radius: 22px;
+    padding: 28px;
+  }
+
+  .eco-insert .eco-sheet {
+    width: min(480px, 100%);
+    min-height: min(620px, calc(100vh - 32px));
+  }
+
+  /* Rice results: a centered card over the dimmed page. */
+  .eco-page .eco-result {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: min(440px, calc(100vw - 32px));
+    grid-template-rows: auto auto auto auto;
+    padding: 36px 28px 28px;
+    border-radius: 22px;
+    box-shadow: 0 0 0 100vmax rgba(23, 26, 23, 0.5);
+    transform: translate(-50%, -50%);
+  }
+
+  .eco-page .eco-result > :first-child {
+    grid-row: auto;
+  }
+
+  .eco-page .eco-result .eco-action-bar {
+    grid-row: auto;
+    margin-top: 12px;
+  }
+}
+
+@media (min-width: 960px) {
+  .eco-home__inner,
+  .eco-page {
+    width: min(1056px, calc(100% - 64px));
+    padding-top: 36px;
+  }
+
+  .eco-page__title,
+  .eco-home__greeting {
+    grid-column: 1 / -1;
+  }
+
+  /* Home: balance on the left, numbers and activity on the right. */
+  .eco-home__inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px 56px;
+    align-items: start;
+  }
+
+  .eco-home__top,
+  .eco-home__inner > .eco-inline-error {
+    grid-column: 1 / -1;
+  }
+
+  .eco-home__mark {
+    display: none;
+  }
+
+  .eco-balance {
+    padding: 32px;
+    border-radius: 22px;
+    background: var(--res-bg-soft);
+  }
+
+  .eco-balance__value {
+    font-size: 5.25rem;
+  }
+
+  .eco-bowl {
+    width: 300px;
+  }
+
+  .eco-bowl__body {
+    background: var(--res-bg);
+  }
+
+  .eco-balance__cta,
+  .eco-balance__insert {
+    justify-self: center;
+    width: min(320px, 100%);
+  }
+
+  .eco-home__side {
+    display: grid;
+    gap: 16px;
+  }
+
+  .eco-stats {
+    padding: 0 0 24px;
+    border-top: 0;
+  }
+
+  .eco-stats div {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .eco-stats dd {
+    font-family: var(--res-display);
+    font-size: 2rem;
+  }
+
+  .eco-stats dt {
+    font-size: 0.875rem;
+  }
+
+  /* Redeem: balance and bin on the left, the choice on the right. */
+  .eco-redeem {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 24px 56px;
+    align-items: start;
+  }
+
+  .eco-summary__balance dd {
+    font-size: 5.25rem;
+  }
+
+  .eco-redeem .eco-panel {
+    padding: 28px;
+    border-radius: 22px;
+    background: var(--res-bg-soft);
+  }
+
+  .eco-amount {
+    min-height: 168px;
+  }
+
+  .eco-amount__value {
+    font-size: 2.75rem;
+  }
+
+  .eco-amount:disabled {
+    background: #ecebe6;
+  }
+
+  .eco-redeem .eco-panel .eco-action-bar .eco-status {
+    text-align: center;
+  }
+
+  /* History: filters beside the title, rows lined up as a table. */
+  .eco-history {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .eco-history .eco-page__title {
+    grid-column: 1;
+  }
+
+  .eco-history > :not(.eco-page__title, .eco-chips) {
+    grid-column: 1 / -1;
+  }
+
+  .eco-history__head,
+  .eco-history .eco-activity__row {
+    grid-template-columns: 44px minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .eco-history__head {
+    display: grid;
+    gap: 12px;
+    padding-bottom: 10px;
+    color: var(--res-ink-2);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .eco-history__head span:first-child {
+    grid-column: 1 / 3;
+  }
+
+  .eco-history__head span:last-child {
+    text-align: right;
+  }
+
+  .eco-history .eco-activity__main {
+    display: contents;
+  }
+
+  /* Account: details and Help on the left, the QR code always in view. */
+  .eco-account {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 24px 56px;
+    align-items: start;
+  }
+
+  .eco-account > * {
+    grid-column: 1;
+  }
+
+  .eco-account > .eco-page__title {
+    grid-column: 1 / -1;
+  }
+
+  .eco-account > .eco-qr-panel {
+    grid-column: 2;
+    grid-row: 2 / span 5;
+  }
+
+  .eco-qr-panel {
+    display: grid;
+    gap: 16px;
+    padding: 28px;
+    border-radius: 22px;
+    background: var(--res-bg-soft);
+    text-align: center;
+  }
+}

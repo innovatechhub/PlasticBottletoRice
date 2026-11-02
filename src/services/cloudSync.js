@@ -50,6 +50,11 @@ export function getSyncMode() {
   return syncMode;
 }
 
+// Data sources that failed to load, so pages can say so instead of showing an empty list.
+export function getSyncErrors() {
+  return session ? [...session.loadErrors] : [];
+}
+
 const roundToThree = (value) => Math.round(value * 1000) / 1000;
 const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const byIdMap = (items) => new Map(items.map((item) => [item.id, item]));
@@ -120,12 +125,14 @@ const listen = (key, part, source) => {
     (snapshot) => {
       if (session !== current) return;
       current.parts[key][part] = snapshotItems(snapshot);
+      current.loadErrors.delete(readyKey);
       current.pending.delete(readyKey);
       applyRemoteToLocal();
     },
     (error) => {
       if (session !== current) return;
       console.error(`Firestore listener error (${readyKey}):`, error);
+      current.loadErrors.add(readyKey);
       current.parts[key][part] = [];
       current.pending.delete(readyKey);
       applyRemoteToLocal();
@@ -300,10 +307,14 @@ const startAdminHardwareListeners = () => {
       (snapshot) => {
         if (session !== current) return;
         current.hardwareStatus = snapshot.exists() ? snapshot.val() : {};
+        current.loadErrors.delete("bin_status");
         applyRemoteToLocal();
       },
       (error) => {
         console.error("bin_status listener error:", error);
+        if (session !== current) return;
+        current.loadErrors.add("bin_status");
+        applyRemoteToLocal();
       }
     )
   );
@@ -335,6 +346,8 @@ export async function startCloudSync({ uid, role }) {
     parts: { users: {}, transactions: {}, notifications: {}, system: {} },
     pending: new Set(),
     hardwareStatus: {},
+    // Data sources that failed to load, e.g. "users:all" or "bin_status".
+    loadErrors: new Set(),
     unsubscribers: [],
     baseline: null,
     systemExists: false,

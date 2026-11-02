@@ -2,39 +2,64 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { onValue, ref } from "firebase/database";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
+import Sheet from "../../components/Sheet";
 import { realtimeDb } from "../../services/firebaseClient";
 import { writeRiceCommand } from "../../services/cloudSync";
+import { formatBinName, formatKg } from "../../utils/format";
+import { MIN_REDEEM_KG, REDEEM_OPTIONS_KG } from "../../utils/redeem";
 
-const formatWeight = (grams) => {
-  if (grams >= 1000) return `${(grams / 1000).toFixed(2)} kg`;
-  return `${grams.toFixed(2)} g`;
-};
+// The bin checks for rice commands about every 5 s and opens the gate for up to 20 s.
+const DISPENSE_TIMEOUT_MS = 60000;
 
+function blockReason(amountKg, balanceKg, riceStockKg) {
+  if (riceStockKg <= 0) {
+    return "Out of stock";
+  }
+  if (balanceKg < amountKg) {
+    return `Need ${formatKg(amountKg - balanceKg)} more`;
+  }
+  if (riceStockKg < amountKg) {
+    return `Only ${formatKg(riceStockKg)} of rice left`;
+  }
+  return "";
+}
+
+// One line above the Redeem button when no amount can be redeemed; none when one can.
+function unavailableMessage(balanceKg, riceStockKg) {
+  if (riceStockKg <= 0) return "Rice is out of stock";
+  if (balanceKg < MIN_REDEEM_KG) return `Need ${formatKg(MIN_REDEEM_KG - balanceKg)} more`;
+  if (riceStockKg < MIN_REDEEM_KG) return `Only ${formatKg(riceStockKg)} of rice left`;
+  return "";
+}
+
+// Steps: choose | confirm | dispensing | done | failed
 export default function UserRedeemPage() {
   const { currentUser } = useAuth();
   const { system, actions } = useData();
 
-  const [kgToRedeem, setKgToRedeem] = useState(0.5);
+  const [amountKg, setAmountKg] = useState(null);
   const [selectedBinId, setSelectedBinId] = useState("");
+  const [step, setStep] = useState("choose");
   const [error, setError] = useState("");
+  const [redeemedKg, setRedeemedKg] = useState(0);
+  const [failure, setFailure] = useState("");
 
-  // dispenseStep: idle | dispensing | done | error
-  const [dispenseStep, setDispenseStep] = useState("idle");
-  const [dispensedKg, setDispensedKg] = useState(0);
-  const [dispenseMessage, setDispenseMessage] = useState("");
-
+  const submittingRef = useRef(false);
   const unsubscribeRef = useRef(null);
+  const headingRef = useRef(null);
 
-  const estimatedRice = useMemo(() => Number(kgToRedeem || 0), [kgToRedeem]);
-  const redeemOptions = [
-    { value: 0.5, label: "500 grams" },
-    { value: 1, label: "1000 grams" },
-  ];
+  const balanceKg = Number(currentUser?.weightKg || 0);
+  const riceStockKg = Number(system.riceStock || 0);
+  const availableBins = useMemo(() => Object.keys(system.bins || {}), [system.bins]);
 
-  const availableBins = useMemo(
-    () => Object.keys(system.bins || {}),
-    [system.bins]
-  );
+  const options = REDEEM_OPTIONS_KG.map((kg) => ({
+    kg,
+    reason: blockReason(kg, balanceKg, riceStockKg),
+  }));
+  const selected = options.find((option) => option.kg === amountKg);
+  const canRedeem = Boolean(selected && !selected.reason && selectedBinId);
+  const message = unavailableMessage(balanceKg, riceStockKg);
+  const binLabel = (binId) => formatBinName(binId, system.bins?.[binId]);
 
   useEffect(() => {
     if (availableBins.length === 1 && !selectedBinId) {
@@ -42,198 +67,303 @@ export default function UserRedeemPage() {
     }
   }, [availableBins, selectedBinId]);
 
+  // Drop a choice that became unavailable, e.g. after the balance changed.
   useEffect(() => {
-    return () => {
-      if (unsubscribeRef.current) unsubscribeRef.current();
-    };
-  }, []);
+    if (step === "choose" && selected?.reason) setAmountKg(null);
+  }, [step, selected]);
 
-  const subscribeToRiceCommand = (binId) => {
-    if (!realtimeDb || !binId) return;
-    if (unsubscribeRef.current) unsubscribeRef.current();
+  useEffect(() => () => unsubscribeRef.current?.(), []);
 
+  useEffect(() => {
+    if (step !== "choose" && step !== "confirm") headingRef.current?.focus();
+  }, [step]);
+
+  // Result screens cover the whole page, so what's behind them must not scroll.
+  const showingResult = step === "dispensing" || step === "done" || step === "failed";
+  useEffect(() => {
+    if (!showingResult) return undefined;
+    document.body.classList.add("portal-modal-lock");
+    return () => document.body.classList.remove("portal-modal-lock");
+  }, [showingResult]);
+
+  useEffect(() => {
+    if (step !== "dispensing") return undefined;
+    const id = setTimeout(() => {
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = null;
+      setFailure("The bin did not confirm that it dispensed your rice.");
+      setStep("failed");
+    }, DISPENSE_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [step]);
+
+  const listenForDispense = (binId) => {
+    unsubscribeRef.current?.();
     unsubscribeRef.current = onValue(
       ref(realtimeDb, `rice_commands/${binId}`),
       (snap) => {
         if (!snap.exists()) return;
-
-        const { status, dispensedKg: actualDispensedKg, message } = snap.val();
-        const parsedDispensedKg = Number(actualDispensedKg || 0);
-
-        if (Number.isFinite(parsedDispensedKg) && parsedDispensedKg > 0) {
-          setDispensedKg(parsedDispensedKg);
-        }
-
-        setDispenseMessage(message || "");
-
+        const { status, message } = snap.val();
         if (status === "done") {
-          setDispenseStep("done");
           unsubscribeRef.current?.();
           unsubscribeRef.current = null;
-          return;
-        }
-
-        if (status === "error") {
-          setDispenseStep("error");
+          setStep("done");
+        } else if (status === "error") {
           unsubscribeRef.current?.();
           unsubscribeRef.current = null;
+          setFailure(message || "The bin reported a problem while dispensing.");
+          setStep("failed");
         }
       },
-      () => setDispenseStep("error")
+      () => {
+        setFailure("Lost contact with the bin while dispensing.");
+        setStep("failed");
+      }
     );
   };
 
-  const handleRedeem = async (event) => {
-    event.preventDefault();
+  const handleRedeem = async () => {
+    if (!currentUser || submittingRef.current) return;
+    if (!canRedeem) {
+      setStep("choose");
+      return;
+    }
+    submittingRef.current = true;
     setError("");
 
-    if (!currentUser) return;
-
-    const result = actions.redeemRice(currentUser.id, kgToRedeem);
+    const result = actions.redeemRice(currentUser.id, amountKg);
     if (!result.ok) {
+      submittingRef.current = false;
       setError(result.error);
+      setStep("choose");
+      return;
+    }
+    setRedeemedKg(result.riceKg);
+
+    if (!realtimeDb) {
+      setStep("done");
       return;
     }
 
-    setDispensedKg(result.riceKg);
-    setDispenseMessage("");
-
-    if (selectedBinId && realtimeDb) {
-      setDispenseStep("dispensing");
-      const cmdResult = await writeRiceCommand(
-        selectedBinId,
-        currentUser.id,
-        currentUser.name,
-        result.riceKg
-      );
-
-      if (cmdResult.ok) {
-        subscribeToRiceCommand(selectedBinId);
-      } else {
-        setDispenseStep("error");
-      }
+    setStep("dispensing");
+    const cmdResult = await writeRiceCommand(
+      selectedBinId,
+      currentUser.id,
+      currentUser.name,
+      result.riceKg
+    );
+    if (cmdResult.ok) {
+      listenForDispense(selectedBinId);
     } else {
-      setDispenseStep("done");
+      setFailure(cmdResult.error || "The bin could not be reached.");
+      setStep("failed");
     }
   };
 
-  const handleReset = () => {
-    setDispenseStep("idle");
-    setDispensedKg(0);
-    setDispenseMessage("");
+  const startOver = () => {
+    submittingRef.current = false;
+    setAmountKg(null);
+    setRedeemedKg(0);
+    setFailure("");
     setError("");
+    setStep("choose");
   };
 
   return (
-    <div className="stack">
-      <section className="card">
-        <h2 className="card-title">Redeem kg for Rice</h2>
-        <p className="muted-text">
-          Conversion rate: <strong>1 kg plastic = 1 kg rice</strong>
-        </p>
-        <div className="split-grid">
-          <div className="sub-card">
-            <p>Your balance</p>
-            <h3>{formatWeight(Number(currentUser?.weightKg || 0) * 1000)}</h3>
+    <div className="eco-page eco-redeem">
+      <h1 className="eco-page__title">Redeem Rice</h1>
+
+      <section className="eco-summary" aria-label="Balance and stock">
+        <dl className="eco-summary__balance">
+          <dt>Your balance</dt>
+          <dd>{formatKg(balanceKg)}</dd>
+        </dl>
+        <p className="eco-summary__note">1 kg plastic = 1 kg rice</p>
+
+        <dl className="eco-rows">
+          <div className="eco-row">
+            <dt>Rice in stock</dt>
+            <dd className={riceStockKg <= 0 ? "is-empty" : undefined}>{formatKg(riceStockKg)}</dd>
           </div>
-          <div className="sub-card">
-            <p>Available rice stock</p>
-            <h3>{system.riceStock} kg</h3>
-          </div>
-          <div className="sub-card">
-            <p>Rice you will receive</p>
-            <h3>{estimatedRice.toFixed(3)} kg</h3>
-          </div>
-        </div>
+          {availableBins.length > 1 ? null : (
+            <div className="eco-row">
+              <dt>Pickup bin</dt>
+              <dd>{availableBins.length === 1 ? binLabel(availableBins[0]) : "No bins set up yet"}</dd>
+            </div>
+          )}
+        </dl>
+
+        {availableBins.length > 1 ? (
+          <label className="eco-field">
+            <span>Pickup bin</span>
+            <select
+              className="eco-field__input"
+              value={selectedBinId}
+              onChange={(e) => setSelectedBinId(e.target.value)}
+            >
+              <option value="">Choose a bin</option>
+              {availableBins.map((id) => (
+                <option key={id} value={id}>
+                  {binLabel(id)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </section>
 
-      <section className="card">
-        {dispenseStep === "idle" && (
-          <form className="stack" onSubmit={handleRedeem}>
-            <label>
-              Dispenser bin
-              <select
-                className="input-field"
-                value={selectedBinId}
-                onChange={(e) => setSelectedBinId(e.target.value)}
-              >
-                {availableBins.length === 0 && (
-                  <option value="">No bins registered</option>
-                )}
-                {availableBins.length > 0 && !selectedBinId && (
-                  <option value="">Select bin...</option>
-                )}
-                {availableBins.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Amount to redeem
-              <select
-                className="input-field"
-                value={kgToRedeem}
-                onChange={(e) => setKgToRedeem(Number(e.target.value))}
-              >
-                {redeemOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <button type="submit" className="btn-primary">
-              Redeem Now
-            </button>
-
-            {error ? <p className="error-text">{error}</p> : null}
-          </form>
-        )}
-
-        {dispenseStep === "dispensing" && (
-          <div className="stack">
-            <p className="success-text">
-              Redemption recorded. <strong>{dispensedKg.toFixed(3)} kg</strong> of
-              rice is being dispensed by <strong>{selectedBinId}</strong>.
-            </p>
-            <p className="muted-text">Please wait while the dispenser finishes.</p>
-            {dispenseMessage ? <p className="muted-text">{dispenseMessage}</p> : null}
+      {step === "choose" || step === "confirm" ? (
+        <section className="eco-panel" aria-labelledby="amount-heading">
+          <h2 id="amount-heading" className="eco-panel__title">
+            Choose an amount
+          </h2>
+          <div className="eco-amounts" role="radiogroup" aria-labelledby="amount-heading">
+            {options.map((option) => {
+              // The line above Redeem already explains when nothing can be redeemed.
+              const hint = option.reason
+                ? message
+                  ? ""
+                  : option.reason
+                : `${formatKg(balanceKg - option.kg)} left`;
+              return (
+                <button
+                  key={option.kg}
+                  type="button"
+                  role="radio"
+                  aria-checked={amountKg === option.kg}
+                  aria-label={formatKg(option.kg)}
+                  aria-describedby={
+                    option.reason && message
+                      ? "redeem-status"
+                      : hint
+                        ? `amount-hint-${option.kg}`
+                        : undefined
+                  }
+                  className={`eco-amount${amountKg === option.kg ? " is-selected" : ""}`}
+                  disabled={Boolean(option.reason)}
+                  onClick={() => setAmountKg(option.kg)}
+                >
+                  <span className="eco-amount__value">{formatKg(option.kg)}</span>
+                  {hint ? (
+                    <span id={`amount-hint-${option.kg}`} className="eco-amount__hint">
+                      {hint}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
-        )}
 
-        {dispenseStep === "done" && (
-          <div className="stack">
-            <p className="success-text">
-              Done. You received <strong>{dispensedKg.toFixed(3)} kg</strong> of
-              rice.
+          {error ? (
+            <p className="eco-inline-error" role="alert">
+              {error}
             </p>
-            {dispenseMessage ? <p className="muted-text">{dispenseMessage}</p> : null}
-            <button type="button" className="btn-primary" onClick={handleReset}>
-              Redeem More
+          ) : null}
+
+          <div className="eco-action-bar">
+            {message ? (
+              <p id="redeem-status" className="eco-status">
+                {message}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="eco-btn eco-btn--primary eco-btn--block"
+              disabled={!canRedeem}
+              onClick={() => setStep("confirm")}
+            >
+              Redeem
             </button>
           </div>
-        )}
+        </section>
+      ) : null}
 
-        {dispenseStep === "error" && (
-          <div className="stack">
-            <p className="success-text">
-              Redemption recorded. <strong>{dispensedKg.toFixed(3)} kg</strong> was
-              requested from the dispenser.
-            </p>
-            <p className="error-text">
-              {dispenseMessage ||
-                "Could not reach the rice dispenser. Please collect your rice manually from the bin."}
-            </p>
-            <button type="button" className="btn-primary" onClick={handleReset}>
+      {step === "confirm" && selected ? (
+        <Sheet
+          title={`Get ${formatKg(selected.kg)} of rice?`}
+          showClose={false}
+          onClose={() => setStep("choose")}
+          actions={
+            <>
+              <button type="button" className="eco-btn eco-btn--primary" onClick={handleRedeem}>
+                Dispense {formatKg(selected.kg)}
+              </button>
+              <button
+                type="button"
+                className="eco-btn eco-btn--secondary"
+                onClick={() => setStep("choose")}
+              >
+                Back
+              </button>
+            </>
+          }
+        >
+          <dl className="eco-confirm">
+            <div>
+              <dt>Bin</dt>
+              <dd>{binLabel(selectedBinId)}</dd>
+            </div>
+            <div>
+              <dt>Rice</dt>
+              <dd>{formatKg(selected.kg)}</dd>
+            </div>
+            <div>
+              <dt>Balance after</dt>
+              <dd>{formatKg(balanceKg - selected.kg)}</dd>
+            </div>
+          </dl>
+          <p className="eco-status">Have your container ready at the bin.</p>
+        </Sheet>
+      ) : null}
+
+      {step === "dispensing" ? (
+        <section className="eco-result" aria-live="polite">
+          <span className="eco-sheet__status eco-sheet__status--busy" aria-hidden="true">
+            <span className="eco-spinner" />
+          </span>
+          <h2 className="eco-panel__title" tabIndex={-1} ref={headingRef}>
+            Dispensing {formatKg(redeemedKg)}
+          </h2>
+          <p className="eco-status">Keep your container under the gate.</p>
+        </section>
+      ) : null}
+
+      {step === "done" ? (
+        <section className="eco-result" aria-live="polite">
+          <span className="eco-sheet__status eco-sheet__status--success" aria-hidden="true">
+            ✓
+          </span>
+          <h2 className="eco-panel__title" tabIndex={-1} ref={headingRef}>
+            Rice dispensed
+          </h2>
+          <p className="eco-status">Balance now {formatKg(balanceKg)}</p>
+          <div className="eco-action-bar">
+            <button type="button" className="eco-btn eco-btn--primary eco-btn--block" onClick={startOver}>
               Done
             </button>
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
+
+      {step === "failed" ? (
+        <section className="eco-result" role="alert">
+          <span className="eco-sheet__status eco-sheet__status--error" aria-hidden="true">
+            !
+          </span>
+          <h2 className="eco-panel__title" tabIndex={-1} ref={headingRef}>
+            Rice not confirmed
+          </h2>
+          <p className="eco-status">
+            {failure} {formatKg(redeemedKg)} was taken from your balance. If no rice came out,
+            ask your barangay admin.
+          </p>
+          <div className="eco-action-bar">
+            <button type="button" className="eco-btn eco-btn--primary eco-btn--block" onClick={startOver}>
+              Close
+            </button>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

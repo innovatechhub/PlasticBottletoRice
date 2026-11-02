@@ -17,14 +17,19 @@ const AuthContext = createContext(null);
 // Older builds stored the signed-in user id here, which let anyone pick an identity.
 const LEGACY_SESSION_KEY = "pbtr_active_user";
 
+// The same message for every credential problem, so the page never reveals
+// whether a username exists (a disabled account included).
+const WRONG_CREDENTIALS = "Incorrect username or password.";
+const SERVER_PROBLEM = "Something went wrong. Please try again.";
+
 const LOGIN_ERRORS = {
-  "auth/invalid-credential": "Invalid credentials. Check your username and password.",
-  "auth/wrong-password": "Invalid credentials. Check your username and password.",
-  "auth/user-not-found": "Invalid credentials. Check your username and password.",
-  "auth/invalid-email": "Enter a valid username.",
-  "auth/user-disabled": "This account has been disabled.",
-  "auth/too-many-requests": "Too many attempts. Wait a moment and try again.",
-  "auth/network-request-failed": "Network error. Check your connection.",
+  "auth/invalid-credential": WRONG_CREDENTIALS,
+  "auth/wrong-password": WRONG_CREDENTIALS,
+  "auth/user-not-found": WRONG_CREDENTIALS,
+  "auth/invalid-email": WRONG_CREDENTIALS,
+  "auth/user-disabled": WRONG_CREDENTIALS,
+  "auth/too-many-requests": "Too many attempts. Wait a few minutes and try again.",
+  "auth/network-request-failed": "Can't connect. Check your internet and try again.",
 };
 
 export function AuthProvider({ children }) {
@@ -120,7 +125,7 @@ export function AuthProvider({ children }) {
   // `loginId` is a username, or an email for admins and older resident accounts.
   const login = async ({ loginId, password }) => {
     if (!firebaseAuth) {
-      return { ok: false, error: "Firebase is not configured." };
+      return { ok: false, error: SERVER_PROBLEM };
     }
     setAuthError("");
     try {
@@ -133,7 +138,7 @@ export function AuthProvider({ children }) {
     } catch (error) {
       return {
         ok: false,
-        error: LOGIN_ERRORS[error.code] || "Sign-in failed. Please try again.",
+        error: LOGIN_ERRORS[error.code] || SERVER_PROBLEM,
       };
     }
   };

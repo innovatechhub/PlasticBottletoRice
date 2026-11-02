@@ -1,411 +1,262 @@
 import { useMemo, useState } from "react";
 import { useData } from "../../app/DataContext";
-import Pagination from "../../components/Pagination";
+import {
+  AdminSection,
+  EmptyRow,
+  LastSeen,
+  LoadErrorNotice,
+  StatusBadge,
+} from "../../components/admin/AdminUI";
+import {
+  BIN_STATES,
+  BIN_STATUS_THRESHOLDS,
+  binStatusSummary,
+  describeComponents,
+  getBinStatus,
+  levelReading,
+} from "../../admin/binStatus";
+import useNow from "../../admin/useNow";
 
-const PAGE_SIZE = 10;
+const COMPONENT_TONE = { ok: "good", warning: "warning", fault: "critical", nodata: "neutral" };
+const COMPONENT_LABEL = { ok: "OK", warning: "Check", fault: "Fault", nodata: "No data" };
 
-const formatSignedNumber = (value, digits = 1, suffix = "") => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return "No live data";
-  }
-  return `${parsed.toFixed(digits)}${suffix}`;
-};
+// From the hardware design. The current firmware (caspstone_project) only uses
+// GPIO 4/5 (bottle scale), 13 (pusher) and 14 (rice gate).
+const PIN_MAP = [
+  ["Bottle pusher servo", "GPIO 13", "Pushes accepted bottles", true],
+  ["Rice gate servo", "GPIO 14", "Dispenses rice", true],
+  ["Bottle load cell DOUT / SCK", "GPIO 4 / 5", "HX711 bottle scale", true],
+  ["Rice ultrasonic TRIG / ECHO", "GPIO 18 / 34", "Rice hopper level", false],
+  ["Bottle ultrasonic TRIG / ECHO", "GPIO 19 / 35", "Bottle bin level", false],
+  ["Rice load cell DOUT / SCK", "GPIO 32 / 33", "HX711 rice scale", false],
+  ["Metal detector", "GPIO 25", "Inductive reject sensor", false],
+];
 
-const formatPositiveNumber = (value, digits = 1, suffix = "") => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return "No live data";
-  }
-  return `${parsed.toFixed(digits)}${suffix}`;
-};
-
-function ReadingCard({ label, value, note }) {
+function Level({ reading }) {
+  if (!reading.available) return <span className="adm-muted">No data</span>;
   return (
-    <div className="sub-card">
-      <p>{label}</p>
-      <h3>{value}</h3>
-      <small>{note}</small>
-    </div>
+    <span className="adm-level">
+      <span className="adm-meter adm-meter--inline" aria-hidden="true">
+        <span style={{ width: `${reading.percent}%` }} />
+      </span>
+      {reading.label}
+      {!reading.live ? <span className="adm-muted adm-small"> last known</span> : null}
+    </span>
   );
-}
-
-function statusTextForDistance(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return "Timeout or invalid echo received.";
-  }
-  return "Sensor is responding.";
 }
 
 export default function AdminHardwarePage() {
-  const { system, users, actions } = useData();
+  const { system, users, actions, syncErrors } = useData();
+  const now = useNow(15000);
+  const readings = system.hardwareBins || {};
 
-  const hardwareBins = system.hardwareBins || {};
-  const binIds = Object.keys(hardwareBins);
-  const primaryBinId = binIds[0] || "bin_001";
-  const liveBin = hardwareBins[primaryBinId] || null;
-
-  const registeredBinEntries = useMemo(
-    () => Object.entries(system.bins || {}),
-    [system.bins]
+  const binIds = useMemo(
+    () =>
+      [...new Set([...Object.keys(system.bins || {}), ...Object.keys(system.hardwareBins || {})])].sort(),
+    [system.bins, system.hardwareBins]
   );
-  const householdUsers = useMemo(
-    () => users.filter((user) => user.role === "user"),
-    [users]
-  );
+  const [selectedId, setSelectedId] = useState("");
+  const binId = binIds.includes(selectedId) ? selectedId : binIds[0] || "";
+  const reading = readings[binId];
+  const status = getBinStatus(reading, now);
+  const summary = binStatusSummary(status, binId, now);
+  const components = describeComponents(reading, status);
 
+  const residents = useMemo(() => users.filter((u) => u.role === "user"), [users]);
   const [newBinId, setNewBinId] = useState("");
   const [newBinUserId, setNewBinUserId] = useState("");
-  const [binStatus, setBinStatus] = useState("");
+  const [binNotice, setBinNotice] = useState("");
   const [binError, setBinError] = useState("");
-  const [binPage, setBinPage] = useState(1);
-
-  const binTotalPages = Math.max(
-    1,
-    Math.ceil(registeredBinEntries.length / PAGE_SIZE)
-  );
-  const binCurrentPage = Math.min(binPage, binTotalPages);
-  const pagedBinEntries = useMemo(() => {
-    const start = (binCurrentPage - 1) * PAGE_SIZE;
-    return registeredBinEntries.slice(start, start + PAGE_SIZE);
-  }, [registeredBinEntries, binCurrentPage]);
 
   const handleAddBin = (event) => {
     event.preventDefault();
-    setBinStatus("");
+    setBinNotice("");
     setBinError("");
-
-    const assignedUser = householdUsers.find((user) => user.id === newBinUserId);
-    const result = actions.addBin(
-      newBinId,
-      assignedUser?.id || "",
-      assignedUser?.name || ""
-    );
-
+    const assignedUser = residents.find((user) => user.id === newBinUserId);
+    const result = actions.addBin(newBinId, assignedUser?.id || "", assignedUser?.name || "");
     if (!result.ok) {
       setBinError(result.error);
       return;
     }
-
-    setBinStatus(`Bin "${newBinId.trim()}" added.`);
+    setBinNotice(`Bin ${newBinId.trim()} added.`);
     setNewBinId("");
     setNewBinUserId("");
   };
 
-  const updatedAtLabel = useMemo(() => {
-    const updatedAt = liveBin?.updatedAt;
-    if (!updatedAt) return "Waiting for ESP32 updates.";
-    const parsed = new Date(updatedAt);
-    if (Number.isNaN(parsed.getTime())) return "Waiting for ESP32 updates.";
-    return `Last update: ${parsed.toLocaleString()}`;
-  }, [liveBin]);
-
   return (
-    <div className="stack">
-      <section className="card">
-        <h2 className="card-title">Bin Management</h2>
-        <form className="split-grid" onSubmit={handleAddBin}>
-          <label>
-            New Bin ID
+    <div className="adm-page">
+      <LoadErrorNotice errors={syncErrors} sources={["bin_status"]} />
+
+      <AdminSection
+        title="Bins"
+        description={`Status comes from each bin's latest status update: Online within ${
+          BIN_STATUS_THRESHOLDS.onlineWithinMs / 60000
+        } min, Delayed within ${BIN_STATUS_THRESHOLDS.delayedWithinMs / 60000} min, otherwise Offline.`}
+      >
+        <div className="adm-table-wrap">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th scope="col">Bin</th>
+                <th scope="col">Location</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last seen</th>
+                <th scope="col">Rice level</th>
+                <th scope="col">Bottle level</th>
+                <th scope="col">Assigned to</th>
+                <th scope="col">
+                  <span className="adm-sr-only">Action</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {binIds.length === 0 ? (
+                <EmptyRow colSpan={8}>No bins yet. Add one below.</EmptyRow>
+              ) : (
+                binIds.map((id) => {
+                  const binStatus = getBinStatus(readings[id], now);
+                  const meta = BIN_STATES[binStatus.state];
+                  return (
+                    <tr key={id} className={id === binId ? "is-selected" : undefined}>
+                      <td>
+                        <strong>{id}</strong>
+                      </td>
+                      <td className="adm-muted">Not recorded</td>
+                      <td>
+                        <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+                      </td>
+                      <td>
+                        <LastSeen value={binStatus.lastSeen} now={now} />
+                      </td>
+                      <td>
+                        <Level reading={levelReading(readings[id], "riceLevelPercent", binStatus)} />
+                      </td>
+                      <td>
+                        <Level reading={levelReading(readings[id], "bottleLevelPercent", binStatus)} />
+                      </td>
+                      <td>{system.bins?.[id]?.assignedUserName || "Unassigned"}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="adm-btn adm-btn--secondary adm-btn--small"
+                          aria-pressed={id === binId}
+                          onClick={() => setSelectedId(id)}
+                        >
+                          {id === binId ? "Showing" : "Diagnose"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </AdminSection>
+
+      {binId ? (
+        <AdminSection title={`Diagnostics: ${binId}`}>
+          <div className={`adm-notice adm-notice--${BIN_STATES[status.state].tone}`}>
+            <StatusBadge tone={BIN_STATES[status.state].tone}>{BIN_STATES[status.state].label}</StatusBadge>{" "}
+            {summary.text}
+            {summary.nextStep ? <span className="adm-block adm-next-step">Next step: {summary.nextStep}</span> : null}
+          </div>
+          {!status.isLive && status.state !== "nodata" ? (
+            <p className="adm-muted">Readings below are the last known values, not live.</p>
+          ) : null}
+
+          <ul className="adm-components">
+            {components.map((item) => (
+              <li key={item.key} className="adm-component">
+                <div className="adm-component__head">
+                  <span className="adm-component__name">{item.name}</span>
+                  <StatusBadge tone={COMPONENT_TONE[item.state]}>{COMPONENT_LABEL[item.state]}</StatusBadge>
+                </div>
+                <p className="adm-component__summary">
+                  {item.lastKnown ? <span className="adm-tag">Last known</span> : null}
+                  {item.summary}
+                </p>
+                {item.value ? <p className="adm-muted adm-small">{item.value}</p> : null}
+                {item.nextStep ? <p className="adm-next-step">Next step: {item.nextStep}</p> : null}
+              </li>
+            ))}
+          </ul>
+
+          <details className="adm-details">
+            <summary>Technical details</summary>
+            <h3 className="adm-subhead">Latest raw status ({binId})</h3>
+            <pre className="adm-raw">{reading ? JSON.stringify(reading, null, 2) : "Nothing received yet."}</pre>
+            <h3 className="adm-subhead">Pin map</h3>
+            <p className="adm-muted adm-small">
+              From the hardware design. Rows marked "Not in firmware" are not used by the current bin
+              firmware.
+            </p>
+            <div className="adm-table-wrap">
+              <table className="adm-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Component</th>
+                    <th scope="col">Pins</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Firmware</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PIN_MAP.map(([name, pins, role, inFirmware]) => (
+                    <tr key={name}>
+                      <td>{name}</td>
+                      <td>
+                        <code>{pins}</code>
+                      </td>
+                      <td>{role}</td>
+                      <td>{inFirmware ? "Used" : <span className="adm-muted">Not in firmware</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </AdminSection>
+      ) : null}
+
+      <AdminSection title="Add a bin" description="Registers a bin ID so residents can use it. The bin also needs its own device login.">
+        <form className="adm-form adm-form--row" onSubmit={handleAddBin}>
+          <label className="adm-field">
+            <span>Bin ID</span>
             <input
-              className="input-field"
+              className="adm-input"
               value={newBinId}
               onChange={(event) => setNewBinId(event.target.value)}
               placeholder="e.g. bin_002"
               required
             />
           </label>
-          <label>
-            Assign to household (optional)
-            <select
-              className="input-field"
-              value={newBinUserId}
-              onChange={(event) => setNewBinUserId(event.target.value)}
-            >
+          <label className="adm-field">
+            <span>Assign to resident (optional)</span>
+            <select className="adm-input" value={newBinUserId} onChange={(event) => setNewBinUserId(event.target.value)}>
               <option value="">Unassigned</option>
-              {householdUsers.map((user) => (
+              {residents.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.name}
                 </option>
               ))}
             </select>
           </label>
-          <button type="submit" className="btn-primary">
-            Add Bin
+          <button type="submit" className="adm-btn adm-btn--primary">
+            Add bin
           </button>
         </form>
-        {binStatus ? <p className="success-text">{binStatus}</p> : null}
-        {binError ? <p className="error-text">{binError}</p> : null}
-
-        <div className="table-wrap" style={{ marginTop: 16 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Bin ID</th>
-                <th>Assigned To</th>
-              </tr>
-            </thead>
-            <tbody>
-              {registeredBinEntries.length === 0 ? (
-                <tr>
-                  <td colSpan="2" className="muted-cell">
-                    No bins registered yet.
-                  </td>
-                </tr>
-              ) : (
-                pagedBinEntries.map(([binId, bin]) => (
-                  <tr key={binId}>
-                    <td>{binId}</td>
-                    <td>{bin?.assignedUserName || "Unassigned"}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <Pagination
-          page={binCurrentPage}
-          totalPages={binTotalPages}
-          totalCount={registeredBinEntries.length}
-          onPageChange={setBinPage}
-          label="bin"
-        />
-      </section>
-
-      <section className="card">
-        <h2 className="card-title">All Hardware Components</h2>
-        <p className="muted-text">
-          Live values coming from <strong>{primaryBinId}</strong> through Firebase
-          <code> bin_status</code>.
-        </p>
-        <p className="muted-text">{updatedAtLabel}</p>
-
-        <div className="split-grid">
-          <ReadingCard
-            label="Bottle Pusher Servo"
-            value={`${liveBin?.pusherServoState || "No live data"}${
-              Number.isFinite(Number(liveBin?.pusherServoAngle))
-                ? ` (${Number(liveBin.pusherServoAngle).toFixed(0)} deg)`
-                : ""
-            }`}
-            note="Servo on GPIO 13"
-          />
-          <ReadingCard
-            label="Rice Gate Servo"
-            value={`${liveBin?.riceServoState || "No live data"}${
-              Number.isFinite(Number(liveBin?.riceServoAngle))
-                ? ` (${Number(liveBin.riceServoAngle).toFixed(0)} deg)`
-                : ""
-            }`}
-            note="Servo on GPIO 14"
-          />
-          <ReadingCard
-            label="Bottle Load Cell"
-            value={formatSignedNumber(liveBin?.bottleScaleWeightG, 1, " g")}
-            note="HX711 bottle weight on GPIO 4/5"
-          />
-          <ReadingCard
-            label="Rice Reward Scale"
-            value={formatSignedNumber(liveBin?.riceScaleWeightG, 1, " g")}
-            note="HX711 rice tray weight on GPIO 32/33"
-          />
-          <ReadingCard
-            label="Rice Ultrasonic Distance"
-            value={formatPositiveNumber(liveBin?.riceDistanceCm, 1, " cm")}
-            note="Ultrasonic distance from GPIO 18/34"
-          />
-          <ReadingCard
-            label="Rice Ultrasonic Level"
-            value={formatPositiveNumber(liveBin?.riceLevelPercent, 0, "%")}
-            note="Computed rice hopper fill percentage"
-          />
-          <ReadingCard
-            label="Bottle Ultrasonic Distance"
-            value={formatPositiveNumber(liveBin?.bottleDistanceCm, 1, " cm")}
-            note="Ultrasonic distance from GPIO 19/35"
-          />
-          <ReadingCard
-            label="Bottle Ultrasonic Level"
-            value={formatPositiveNumber(liveBin?.bottleLevelPercent, 0, "%")}
-            note="Computed bottle bin fill percentage"
-          />
-          <ReadingCard
-            label="Metal Detector"
-            value={
-              typeof liveBin?.inductiveMetalDetected === "boolean"
-                ? liveBin.inductiveMetalDetected
-                  ? "Metal detected"
-                  : "Idle"
-                : "No live data"
-            }
-            note="Inductive sensor on GPIO 25"
-          />
-          <ReadingCard
-            label="Wi-Fi Link"
-            value={
-              typeof liveBin?.wifiConnected === "boolean"
-                ? liveBin.wifiConnected
-                  ? "Connected"
-                  : "Disconnected"
-                : "No live data"
-            }
-            note="ESP32 connectivity state"
-          />
-        </div>
-      </section>
-
-      <section className="card">
-        <h2 className="card-title">Hardware Status Summary</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th>Value</th>
-                <th>Meaning</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Bottle pusher servo</td>
-                <td>
-                  {liveBin?.pusherServoState || "No live data"}
-                  {Number.isFinite(Number(liveBin?.pusherServoAngle))
-                    ? ` (${Number(liveBin.pusherServoAngle).toFixed(0)} deg)`
-                    : ""}
-                </td>
-                <td>Pushes accepted bottles into storage.</td>
-              </tr>
-              <tr>
-                <td>Rice gate servo</td>
-                <td>
-                  {liveBin?.riceServoState || "No live data"}
-                  {Number.isFinite(Number(liveBin?.riceServoAngle))
-                    ? ` (${Number(liveBin.riceServoAngle).toFixed(0)} deg)`
-                    : ""}
-                </td>
-                <td>Opens and closes the rice dispensing gate.</td>
-              </tr>
-              <tr>
-                <td>Bottle load cell</td>
-                <td>{formatSignedNumber(liveBin?.bottleScaleWeightG, 1, " g")}</td>
-                <td>Measures incoming bottle weight.</td>
-              </tr>
-              <tr>
-                <td>Rice reward scale</td>
-                <td>{formatSignedNumber(liveBin?.riceScaleWeightG, 1, " g")}</td>
-                <td>Measures dispensed rice on the tray.</td>
-              </tr>
-              <tr>
-                <td>Rice ultrasonic</td>
-                <td>{formatPositiveNumber(liveBin?.riceDistanceCm, 1, " cm")}</td>
-                <td>{statusTextForDistance(liveBin?.riceDistanceCm)}</td>
-              </tr>
-              <tr>
-                <td>Bottle ultrasonic</td>
-                <td>{formatPositiveNumber(liveBin?.bottleDistanceCm, 1, " cm")}</td>
-                <td>{statusTextForDistance(liveBin?.bottleDistanceCm)}</td>
-              </tr>
-              <tr>
-                <td>Metal detector</td>
-                <td>
-                  {typeof liveBin?.inductiveMetalDetected === "boolean"
-                    ? liveBin.inductiveMetalDetected
-                      ? "Triggered"
-                      : "Idle"
-                    : "No live data"}
-                </td>
-                <td>Rejects bottles when metal is detected.</td>
-              </tr>
-              <tr>
-                <td>Wi-Fi</td>
-                <td>
-                  {typeof liveBin?.wifiConnected === "boolean"
-                    ? liveBin.wifiConnected
-                      ? "Connected"
-                      : "Disconnected"
-                    : "No live data"}
-                </td>
-                <td>Shows whether the ESP32 is online and publishing.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2 className="card-title">Pin Map</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th>Pin</th>
-                <th>Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Bottle pusher servo</td>
-                <td>GPIO 13</td>
-                <td>Pushes accepted bottles</td>
-              </tr>
-              <tr>
-                <td>Rice gate servo</td>
-                <td>GPIO 14</td>
-                <td>Dispenses rice rewards</td>
-              </tr>
-              <tr>
-                <td>Rice ultrasonic TRIG</td>
-                <td>GPIO 18</td>
-                <td>Rice hopper trigger</td>
-              </tr>
-              <tr>
-                <td>Rice ultrasonic ECHO</td>
-                <td>GPIO 34</td>
-                <td>Rice hopper echo input</td>
-              </tr>
-              <tr>
-                <td>Bottle ultrasonic TRIG</td>
-                <td>GPIO 19</td>
-                <td>Bottle bin trigger</td>
-              </tr>
-              <tr>
-                <td>Bottle ultrasonic ECHO</td>
-                <td>GPIO 35</td>
-                <td>Bottle bin echo input</td>
-              </tr>
-              <tr>
-                <td>Bottle load cell DOUT</td>
-                <td>GPIO 4</td>
-                <td>HX711 bottle scale data</td>
-              </tr>
-              <tr>
-                <td>Bottle load cell SCK</td>
-                <td>GPIO 5</td>
-                <td>HX711 bottle scale clock</td>
-              </tr>
-              <tr>
-                <td>Rice load cell DOUT</td>
-                <td>GPIO 32</td>
-                <td>HX711 rice scale data</td>
-              </tr>
-              <tr>
-                <td>Rice load cell SCK</td>
-                <td>GPIO 33</td>
-                <td>HX711 rice scale clock</td>
-              </tr>
-              <tr>
-                <td>Metal detector</td>
-                <td>GPIO 25</td>
-                <td>Inductive reject sensor input</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+        {binNotice ? (
+          <p className="adm-notice adm-notice--good" role="status">
+            {binNotice}
+          </p>
+        ) : null}
+        {binError ? (
+          <p className="adm-error" role="alert">
+            {binError}
+          </p>
+        ) : null}
+      </AdminSection>
     </div>
   );
 }

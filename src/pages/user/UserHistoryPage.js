@@ -1,36 +1,43 @@
 import { useMemo, useState } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
+import ActivityList from "../../components/ActivityList";
 import Pagination from "../../components/Pagination";
 
-const formatDateTime = (timestamp) =>
-  new Date(timestamp).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-const formatSigned = (value, suffix = "") => {
-  if (!value) {
-    return `0${suffix}`;
-  }
-  return `${value > 0 ? "+" : ""}${value}${suffix}`;
-};
-
 const PAGE_SIZE = 10;
+
+const FILTERS = [
+  { label: "All", matches: () => true },
+  { label: "Bottles", matches: (item) => item.type === "bottle" },
+  { label: "Rice", matches: (item) => item.type === "redeem" },
+];
+
+function RiceBowlIcon() {
+  return (
+    <svg className="eco-empty__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        d="M6.5 11a5.5 4 0 0 1 11 0M3 11h18a9 7.5 0 0 1-6 7.1V20H9v-1.9A9 7.5 0 0 1 3 11Z"
+      />
+    </svg>
+  );
+}
 
 export default function UserHistoryPage() {
   const { currentUser } = useAuth();
   const { transactions } = useData();
   const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState(FILTERS[0]);
 
   const rows = useMemo(() => {
     if (!currentUser) {
       return [];
     }
-    return transactions.filter((item) => item.userId === currentUser.id);
-  }, [transactions, currentUser]);
+    return transactions.filter((item) => item.userId === currentUser.id && filter.matches(item));
+  }, [transactions, currentUser, filter]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -40,52 +47,52 @@ export default function UserHistoryPage() {
   }, [rows, currentPage]);
 
   return (
-    <section className="card">
-      <h2 className="card-title">Your Transaction Logs</h2>
-      <p className="muted-text">Every bottle insert and rice redemption is tracked.</p>
+    <div className="eco-page eco-history">
+      <h1 className="eco-page__title">History</h1>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Details</th>
-              <th>kg Delta</th>
-              <th>Rice Delta</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="muted-cell">
-                  No transactions for this account.
-                </td>
-              </tr>
-            ) : (
-              pagedRows.map((item) => (
-                <tr key={item.id}>
-                  <td>{formatDateTime(item.timestamp)}</td>
-                  <td>
-                    <span className={`badge badge-${item.type}`}>{item.type}</span>
-                  </td>
-                  <td>{item.details}</td>
-                  <td>{formatSigned(item.kgDelta, " kg")}</td>
-                  <td>{formatSigned(item.riceDeltaKg, " kg")}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="eco-chips" role="group" aria-label="Show">
+        {FILTERS.map((option) => (
+          <button
+            key={option.label}
+            type="button"
+            className={`eco-chip${option === filter ? " is-active" : ""}`}
+            aria-pressed={option === filter}
+            onClick={() => {
+              setFilter(option);
+              setPage(1);
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
 
-      <Pagination
-        page={currentPage}
-        totalPages={totalPages}
-        totalCount={rows.length}
-        onPageChange={setPage}
-        label="transaction"
-      />
-    </section>
+      {rows.length === 0 ? (
+        <div className="eco-empty">
+          <RiceBowlIcon />
+          <p>No activity yet.</p>
+        </div>
+      ) : (
+        <div className="eco-history__list">
+          {/* Column labels for wide screens, where rows line up as a table. */}
+          <div className="eco-history__head" aria-hidden="true">
+            <span>Activity</span>
+            <span>Date</span>
+            <span>Amount</span>
+          </div>
+          <ActivityList items={pagedRows} />
+        </div>
+      )}
+
+      {rows.length > PAGE_SIZE ? (
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          totalCount={rows.length}
+          onPageChange={setPage}
+          label="record"
+        />
+      ) : null}
+    </div>
   );
 }

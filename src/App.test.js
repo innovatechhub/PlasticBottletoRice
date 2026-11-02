@@ -1,8 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import App from "./App";
 
-test("renders login page", () => {
+// "/" is the public home page (the old test expected the login form there).
+test("renders the public home page", async () => {
   render(<App />);
-  const headingElement = screen.getByText(/Welcome back!/i);
-  expect(headingElement).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Bottles for rice" })).toBeInTheDocument();
+  for (const link of screen.getAllByRole("link", { name: "Log in" })) {
+    expect(link).toHaveAttribute("href", "/login");
+  }
+  expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual(
+    expect.arrayContaining(["Collect bottles", "Insert in bin", "Get rice"])
+  );
+  expect(screen.queryByText(/Learn More|Join the Movement|Find a Station/)).not.toBeInTheDocument();
 });

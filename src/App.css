@@ -49,28 +49,6 @@
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
-  .sb-login-shell .sb-login-left {
-    min-height: 0;
-    padding: 88px clamp(20px, 5vw, 32px) 48px;
-    align-items: center;
-  }
-
-  .sb-login-left-inner {
-    gap: 24px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    box-shadow: none;
-  }
-
-  .sb-login-shell .sb-back-btn {
-    top: 20px;
-    left: clamp(20px, 5vw, 32px);
-    margin-bottom: 0;
-    font-size: 0.8rem;
-    padding: 9px 12px;
-  }
-
   .sb-login-shell .sb-form {
     gap: 18px;
   }
@@ -79,18 +57,9 @@
     font-size: 1.6rem;
   }
 
-  .sb-login-shell .sb-remember,
-  .sb-login-shell .sb-forgot {
-    font-size: 0.75rem;
-  }
-
+  /* 16px stops iOS from zooming into the field. */
   .sb-login-shell .sb-input {
     font-size: 16px;
-  }
-
-  .sb-form-row {
-    flex-wrap: wrap;
-    gap: 12px;
   }
 }
 
@@ -231,8 +200,8 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 0 20px;
+  min-height: 52px;
+  padding: 0 22px;
   border-radius: 999px;
   border: 1px solid transparent;
   cursor: pointer;
@@ -248,6 +217,11 @@
 .eco-landing__btn:hover,
 .eco-landing__btn:focus-visible {
   transform: translateY(-1px);
+}
+
+.eco-landing__btn:focus-visible {
+  outline: 3px solid #ffd84f;
+  outline-offset: 2px;
 }
 
 .eco-landing__btn--primary {
@@ -278,9 +252,10 @@
   box-shadow: 0 22px 40px rgba(21, 66, 18, 0.22);
 }
 
+/* Dark text keeps contrast across the whole green-to-yellow gradient. */
 .eco-landing__btn--banner-primary {
   background: linear-gradient(90deg, #1fb64f 0%, #ffd84f 100%);
-  color: #ffffff;
+  color: #0f3a0d;
   box-shadow: 0 18px 32px rgba(6, 68, 31, 0.26);
 }
 

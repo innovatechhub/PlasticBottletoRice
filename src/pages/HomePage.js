@@ -1,138 +1,50 @@
+import { Link } from "react-router-dom";
+import { useAuth } from "../app/AuthContext";
 import PublicSiteLayout from "../components/PublicSiteLayout";
-import { useNavigate } from "react-router-dom";
+import { accountHome } from "../utils/routes";
 
-const steps = [
-  {
-    icon: "delete_sweep",
-    title: "1. Collect Plastic",
-    copy:
-      "Gather household and community plastic waste. PET bottles, packaging, and clean scraps all count.",
-  },
-  {
-    icon: "location_on",
-    title: "2. Bring to Station",
-    copy:
-      "Visit an EcoRice kiosk, scan your QR ID, and submit your collected items for validation.",
-  },
-  {
-    icon: "eco",
-    title: "3. Receive Rice",
-    copy:
-      "Get organic rice immediately or earn credits toward longer-term community rewards.",
-  },
-];
-
-function SectionHeading({ title, copy }) {
-  return (
-    <div className="eco-landing__section-heading">
-      <h2 className="eco-landing__section-title">{title}</h2>
-      {copy ? <p className="eco-landing__section-copy">{copy}</p> : null}
-    </div>
-  );
-}
+const steps = ["Collect bottles", "Insert in bin", "Get rice"];
 
 export default function HomePage() {
-  const navigate = useNavigate();
+  const { currentUser } = useAuth();
 
   return (
     <PublicSiteLayout>
-      <main>
-        <section
-          className="eco-landing__hero eco-landing__hero--banner"
-          id="home"
-          style={{
-            backgroundImage: `linear-gradient(180deg, rgba(0, 45, 20, 0.42) 0%, rgba(2, 56, 28, 0.68) 100%), url(${process.env.PUBLIC_URL}/PageUI.png)`,
-            backgroundPosition: "center center",
-            backgroundRepeat: "no-repeat",
-            backgroundSize: "cover",
-          }}
-        >
-          <div className="eco-landing__hero-banner">
-            <div className="eco-landing__hero-banner-glow" />
-            <div className="eco-landing__hero-banner-icon" aria-hidden="true">
-              <span className="material-symbols-outlined">delete</span>
-            </div>
-            <h1 className="eco-landing__title eco-landing__title--banner">
-              <span className="eco-landing__title-plus">+Eco</span>{" "}
-              <span className="eco-landing__title-main">Bottle</span>{" "}
-              <span className="eco-landing__title-accent">For</span>{" "}
-              <span className="eco-landing__title-plus">Rice</span>{" "}
-            </h1>
-            <p className="eco-landing__subtitle eco-landing__subtitle--banner">
-              Encouraging Recycling Through <strong>Technology</strong> &amp;{" "}
-              <strong>Rewards</strong>
-            </p>
+      <section className="pub-hero">
+        <div className="pub-hero__text">
+          <h1 className="pub-title">Bottles for rice</h1>
+          <p className="pub-lead">Recycle in Tibiao. Earn rice.</p>
+          {currentUser ? (
+            <Link className="eco-btn eco-btn--primary pub-hero__cta" to={accountHome(currentUser)}>
+              Go to account
+            </Link>
+          ) : (
+            <Link className="eco-btn eco-btn--primary pub-hero__cta" to="/login">
+              Log in
+            </Link>
+          )}
+        </div>
+        <img
+          className="pub-hero__image"
+          src={`${process.env.PUBLIC_URL}/PageUI.png`}
+          alt="A hand putting a plastic bottle into a recycling bin"
+          width="1189"
+          height="670"
+        />
+      </section>
 
-            <div className="eco-landing__hero-actions eco-landing__hero-actions--banner">
-              <button
-                type="button"
-                className="eco-landing__btn eco-landing__btn--primary eco-landing__btn--banner-primary"
-                onClick={() => navigate("/login")}
-              >
-                Get Started
-              </button>
-              <a className="eco-landing__btn eco-landing__btn--outline" href="#how-it-works">
-                Learn More
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <section className="eco-landing__section eco-landing__section--soft" id="how-it-works">
-          <div className="eco-landing__section-inner">
-            <SectionHeading
-              title="How it Works"
-              copy="Simple steps to make a global impact."
-            />
-
-            <div className="eco-landing__grid-3">
-              {steps.map((step) => (
-                <article key={step.title} className="eco-landing__card">
-                  <div className="eco-landing__card-icon">
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      {step.icon}
-                    </span>
-                  </div>
-                  <h3 className="eco-landing__card-title">{step.title}</h3>
-                  <p className="eco-landing__card-copy">{step.copy}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="eco-landing__section eco-landing__cta">
-          <div className="eco-landing__section-inner">
-            <div className="eco-landing__cta-panel">
-              <h2 className="eco-landing__cta-title">Join the Movement</h2>
-              <p className="eco-landing__cta-copy">
-                Be the change in your community. Start collecting plastic today and earn
-                rewards while helping us build a cleaner, better-fed world.
-              </p>
-              <div className="eco-landing__cta-actions">
-                <button
-                  type="button"
-                  className="eco-landing__btn eco-landing__btn--primary"
-                  onClick={() => navigate("/login")}
-                >
-                  Find a Station
-                  <span className="material-symbols-outlined">map</span>
-                </button>
-                <button
-                  type="button"
-                  className="eco-landing__btn eco-landing__btn--outline"
-                  onClick={() => navigate("/rewards")}
-                >
-                  View Rewards
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+      <section className="pub-section" aria-labelledby="steps-heading">
+        <h2 id="steps-heading" className="pub-section__title">
+          How it works
+        </h2>
+        <ol className="pub-steps">
+          {steps.map((step) => (
+            <li key={step} className="pub-steps__item">
+              {step}
+            </li>
+          ))}
+        </ol>
+      </section>
     </PublicSiteLayout>
   );
 }

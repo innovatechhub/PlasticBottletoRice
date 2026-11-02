@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { dataStore } from "../services/localStore";
 import {
   flushWrites,
+  getSyncErrors,
   getSyncMode,
   setResidentFlag,
 } from "../services/cloudSync";
@@ -33,11 +34,16 @@ const CREATE_LOGIN_ERRORS = {
 export function DataProvider({ children }) {
   const [state, setState] = useState(dataStore.getState());
   const [syncMode, setSyncMode] = useState(getSyncMode());
+  const [syncErrors, setSyncErrors] = useState(getSyncErrors());
 
   useEffect(() => {
     const unsubscribe = dataStore.subscribe((snapshot) => {
       setState(snapshot);
       setSyncMode(getSyncMode());
+      setSyncErrors((previous) => {
+        const next = getSyncErrors();
+        return next.join() === previous.join() ? previous : next;
+      });
     });
     return unsubscribe;
   }, []);
@@ -188,9 +194,10 @@ export function DataProvider({ children }) {
     () => ({
       ...state,
       syncMode,
+      syncErrors,
       actions,
     }),
-    [state, syncMode, actions]
+    [state, syncMode, syncErrors, actions]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

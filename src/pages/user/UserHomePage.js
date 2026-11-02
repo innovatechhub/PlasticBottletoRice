@@ -1,428 +1,251 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { onValue, ref } from "firebase/database";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../app/AuthContext";
 import { useData } from "../../app/DataContext";
-import { realtimeDb } from "../../services/firebaseClient";
-import { cancelBinCommand, isBinInUse, writeBinCommand } from "../../services/cloudSync";
+import ActivityList from "../../components/ActivityList";
+import BrandMark from "../../components/BrandMark";
+import RiceBowl from "../../components/RiceBowl";
+import { formatKg } from "../../utils/format";
+import { MIN_REDEEM_KG } from "../../utils/redeem";
+import InsertBottleSession from "./InsertBottleSession";
 
-const SESSION_SECONDS = 60;
+// Phones show the first two (see resident.css); wide screens have room for all four.
+const RECENT_COUNT = 4;
 
-const formatWeight = (grams) => {
-  if (grams >= 1000) return `${(grams / 1000).toFixed(2)} kg`;
-  return `${grams.toFixed(2)} g`;
-};
-
-function BottleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M10 2h4v3l1.5 1.8V20a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V6.8L10 5V2Z" />
-      <path d="M9 10h6" />
-      <path d="M9 16h6" />
-    </svg>
-  );
-}
-
-function GiftIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 10h16v10H4V10Z" />
-      <path d="M2.8 6h18.4v4H2.8V6Z" />
-      <path d="M12 6v14" />
-      <path d="M12 6C9 6 8 3 9.8 2.4 11 2 12 3.6 12 6Z" />
-      <path d="M12 6c3 0 4-3 2.2-3.6C13 2 12 3.6 12 6Z" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function StatTile({ icon, label, value, note, accent }) {
-  return (
-    <div className="portal-stat-tile">
-      <span className="portal-stat-icon">{icon}</span>
-      <p className="portal-stat-label">{label}</p>
-      <strong className={accent ? "portal-stat-value accent" : "portal-stat-value"}>
-        {value}
-      </strong>
-      <span className="portal-stat-note">{note}</span>
-    </div>
-  );
+// Progress toward the smallest amount of rice the Redeem page offers.
+function riceProgress(balanceKg, hasRedeemed) {
+  if (balanceKg >= MIN_REDEEM_KG) {
+    return { percent: 100, text: "Ready to redeem", ready: true };
+  }
+  return {
+    percent: (balanceKg / MIN_REDEEM_KG) * 100,
+    text: `${formatKg(MIN_REDEEM_KG - balanceKg)} to your ${hasRedeemed ? "next" : "first"} rice`,
+    ready: false,
+  };
 }
 
 export default function UserHomePage() {
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { transactions, system, actions } = useData();
 
-  const availableBins = useMemo(
-    () => Object.keys(system.bins || {}),
-    [system.bins]
-  );
+  const availableBins = useMemo(() => Object.keys(system.bins || {}), [system.bins]);
 
   const [binModalOpen, setBinModalOpen] = useState(false);
   const [binInput, setBinInput] = useState("");
   const [binError, setBinError] = useState("");
-
-  const [sessionOpen, setSessionOpen] = useState(false);
-  const [selectedBinId, setSelectedBinId] = useState("");
-  const [insertStep, setInsertStep] = useState("idle");
-  const [insertError, setInsertError] = useState("");
-  const [insertNotice, setInsertNotice] = useState("");
-  const [timerSeconds, setTimerSeconds] = useState(SESSION_SECONDS);
-  const [timerPaused, setTimerPaused] = useState(false);
-  const [sessionBottles, setSessionBottles] = useState([]);
-  const [sessionSaved, setSessionSaved] = useState(false);
-
-  const unsubRef = useRef(null);
-  const lastAcceptedAtRef = useRef("");
-  const lastValidationAtRef = useRef("");
-  const sessionInfoRef = useRef({ binId: "", userId: "", userName: "" });
+  const [startError, setStartError] = useState("");
+  const [sessionBinId, setSessionBinId] = useState("");
 
   useEffect(() => {
-    sessionInfoRef.current = {
-      binId: selectedBinId,
-      userId: currentUser?.id || "",
-      userName: currentUser?.name || "",
-    };
-  }, [selectedBinId, currentUser]);
-
-  useEffect(
-    () => () => {
-      unsubRef.current?.();
-    },
-    []
-  );
-
-  useEffect(() => {
-    const isModalOpen = binModalOpen || sessionOpen;
+    const isModalOpen = binModalOpen || Boolean(sessionBinId);
     document.body.classList.toggle("portal-modal-lock", isModalOpen);
     return () => {
       document.body.classList.remove("portal-modal-lock");
     };
-  }, [binModalOpen, sessionOpen]);
+  }, [binModalOpen, sessionBinId]);
 
-  useEffect(() => {
-    if (!sessionOpen || insertStep !== "active" || timerPaused) return undefined;
-    const id = setInterval(() => {
-      setTimerSeconds((t) => Math.max(0, t - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [sessionOpen, insertStep, timerPaused]);
-
-  useEffect(() => {
-    if (!sessionOpen || timerSeconds > 0 || insertStep !== "active" || timerPaused) return;
-    unsubRef.current?.();
-    unsubRef.current = null;
-    cancelBinCommand(sessionInfoRef.current.binId).catch(() => {});
-    setInsertStep("summary");
-  }, [sessionOpen, timerSeconds, insertStep, timerPaused]);
-
-  const subscribeToCommand = useCallback((binId) => {
-    if (!realtimeDb || !binId) return;
-    unsubRef.current?.();
-    unsubRef.current = onValue(
-      ref(realtimeDb, `bin_commands/${binId}`),
-      (snapshot) => {
-        if (!snapshot.exists()) return;
-        const {
-          status,
-          lastWeightKg,
-          lastAcceptedAt,
-          lastValidationStatus,
-          lastValidationMessage,
-          lastValidationAt,
-        } = snapshot.val();
-
-        if (status === "active") {
-          setInsertStep("active");
-          if (
-            (lastValidationStatus === "warning" || lastValidationStatus === "rejected") &&
-            lastValidationAt &&
-            lastValidationAt !== lastValidationAtRef.current
-          ) {
-            setTimerPaused(lastValidationStatus === "warning");
-            setInsertNotice(
-              lastValidationMessage ||
-                (lastValidationStatus === "warning"
-                  ? "Metal detected. Please remove the object. Only plastic bottle is allowed."
-                  : "Bottle not accepted. Please try again.")
-            );
-            lastValidationAtRef.current = lastValidationAt;
-          } else if (
-            lastValidationStatus === "ready" &&
-            lastValidationAt &&
-            lastValidationAt !== lastValidationAtRef.current
-          ) {
-            setTimerPaused(false);
-            setTimerSeconds(SESSION_SECONDS);
-            setInsertNotice(lastValidationMessage || "");
-            lastValidationAtRef.current = lastValidationAt;
-          } else if (
-            lastValidationStatus &&
-            lastValidationStatus !== "warning" &&
-            lastValidationStatus !== "rejected"
-          ) {
-            setTimerPaused(false);
-            setInsertNotice(lastValidationMessage || "");
-          }
-
-          if (lastAcceptedAt && lastAcceptedAt !== lastAcceptedAtRef.current) {
-            const kg = Number(lastWeightKg || 0);
-            if (kg > 0) {
-              setSessionBottles((prev) => [...prev, { weightKg: kg }]);
-              setTimerSeconds(SESSION_SECONDS);
-            }
-            lastAcceptedAtRef.current = lastAcceptedAt;
-            setTimerPaused(false);
-            setInsertNotice("");
-          }
-          return;
-        }
-
-        if (status === "waiting") {
-          setTimerPaused(false);
-          setInsertStep("waiting");
-          return;
-        }
-
-        if (status === "expired" || status === "idle") {
-          setTimerPaused(false);
-          setInsertStep("summary");
-          unsubRef.current?.();
-          unsubRef.current = null;
-        }
-      },
-      () => {
-        setInsertStep("error");
-        setInsertError("Lost connection to Firebase.");
-      }
-    );
-  }, []);
-
-  const startInsertWithBin = async (binId) => {
-    if (!binId) {
-      setBinError("Enter a bin ID to continue.");
-      return;
-    }
-
-    if (!realtimeDb) {
-      setBinError("Firebase is not configured.");
-      return;
-    }
-
-    setBinError("");
-
-    const inUse = await isBinInUse(binId, currentUser.id);
-    if (inUse) {
-      setBinError("This bin is currently in use by another user. Please wait.");
-      return;
-    }
-
-    setSelectedBinId(binId);
-    setSessionBottles([]);
-    lastAcceptedAtRef.current = "";
-    lastValidationAtRef.current = "";
-    setSessionSaved(false);
-    setInsertError("");
-    setInsertNotice("");
+  const openSession = (binId) => {
     setBinModalOpen(false);
-    setSessionOpen(true);
-    setInsertStep("waiting");
-    setTimerSeconds(SESSION_SECONDS);
-    setTimerPaused(false);
+    setBinError("");
+    setStartError("");
+    setSessionBinId(binId);
+  };
 
-    const result = await writeBinCommand(binId, currentUser.id, currentUser.name);
-    if (!result.ok) {
-      setInsertStep("error");
-      setInsertError(result.error || "Failed to send command to the bin.");
+  const handleInsertBottleClick = () => {
+    if (sessionBinId) return;
+    if (availableBins.length === 0) {
+      setStartError("No bins are set up yet. Ask the barangay admin to add one.");
       return;
     }
-
-    subscribeToCommand(binId);
-  };
-
-  const handleStartInsert = async (event) => {
-    event.preventDefault();
-    await startInsertWithBin(binInput.trim());
-  };
-
-  const handleInsertBottleClick = async () => {
     if (availableBins.length === 1) {
-      await startInsertWithBin(availableBins[0]);
+      openSession(availableBins[0]);
       return;
     }
     setBinError("");
     setBinModalOpen(true);
   };
 
-  const handleDone = async () => {
-    unsubRef.current?.();
-    unsubRef.current = null;
-
-    if (!sessionSaved && sessionBottles.length > 0) {
-      const result = actions.finalizeBottleSession(
-        currentUser.id,
-        sessionBottles.map((bottle) => bottle.weightKg),
-        selectedBinId
-      );
-      if (!result.ok) {
-        setInsertStep("error");
-        setInsertError(result.error || "Failed to save this bottle session.");
-        return;
-      }
-      setSessionSaved(true);
+  const handleBinSubmit = (event) => {
+    event.preventDefault();
+    const binId = binInput.trim();
+    if (!binId) {
+      setBinError("Enter the bin ID shown on the bin.");
+      return;
     }
-
-    if (insertStep === "waiting" || insertStep === "active") {
-      await cancelBinCommand(selectedBinId);
+    if (!availableBins.includes(binId)) {
+      setBinError(`There is no bin called ${binId}. Check the ID on the bin.`);
+      return;
     }
-    setInsertStep("summary");
+    openSession(binId);
   };
 
-  const handleCloseSession = () => {
-    if (!sessionSaved && sessionBottles.length > 0) {
-      const result = actions.finalizeBottleSession(
-        currentUser.id,
-        sessionBottles.map((bottle) => bottle.weightKg),
-        selectedBinId
-      );
-      if (!result.ok) {
-        setInsertStep("error");
-        setInsertError(result.error || "Failed to save this bottle session.");
-        return;
-      }
-    }
+  const finalizeSession = useCallback(
+    (weightsKg) => actions.finalizeBottleSession(currentUser.id, weightsKg, sessionBinId),
+    [actions, currentUser, sessionBinId]
+  );
 
-    unsubRef.current?.();
-    unsubRef.current = null;
+  const closeSession = useCallback(() => {
+    setSessionBinId("");
     setBinInput("");
-    setSelectedBinId("");
-    setInsertStep("idle");
-    setInsertError("");
-    setBinError("");
-    setTimerSeconds(SESSION_SECONDS);
-    setTimerPaused(false);
-    setSessionBottles([]);
-    lastAcceptedAtRef.current = "";
-    lastValidationAtRef.current = "";
-    setSessionSaved(false);
-    setSessionOpen(false);
-    setInsertNotice("");
-  };
+  }, []);
 
-  const sessionBottleCount = sessionBottles.length;
-  const sessionTotalKg = sessionBottles.reduce((sum, bottle) => sum + bottle.weightKg, 0);
-  const totalItemsRecycled = useMemo(() => {
-    if (!currentUser) return 0;
-    return transactions
-      .filter((item) => item.userId === currentUser.id && item.type === "bottle")
-      .reduce((sum, item) => sum + Number(item.amount || item.bottleDelta || 0), 0);
-  }, [transactions, currentUser]);
-  const totalWeightGrams = Number(currentUser?.weightKg || 0) * 1000;
+  // Newest first, as stored.
+  const myTransactions = useMemo(
+    () => (currentUser ? transactions.filter((item) => item.userId === currentUser.id) : []),
+    [transactions, currentUser]
+  );
 
-  const firstName = currentUser?.name?.split(" ")[0] || "User";
-  const minutes = String(Math.floor(timerSeconds / 60)).padStart(2, "0");
-  const seconds = String(timerSeconds % 60).padStart(2, "0");
+  const bottlesRecycled = useMemo(
+    () =>
+      myTransactions
+        .filter((item) => item.type === "bottle")
+        .reduce((sum, item) => sum + Number(item.amount || item.bottleDelta || 0), 0),
+    [myTransactions]
+  );
+
+  const recycledKg = useMemo(
+    () =>
+      myTransactions
+        .filter((item) => item.type === "bottle")
+        .reduce((sum, item) => sum + Math.max(0, Number(item.kgDelta) || 0), 0),
+    [myTransactions]
+  );
+
+  const redeemed = myTransactions.filter(
+    (item) => item.type === "redeem" && item.status !== "declined"
+  );
+  const hasRedeemed = redeemed.length > 0;
+  const riceKg = redeemed.reduce(
+    (sum, item) => sum + Math.abs(Number(item.riceDeltaKg) || Number(item.kgDelta) || 0),
+    0
+  );
+  const recent = myTransactions.slice(0, RECENT_COUNT);
+
+  const balanceKg = Number(currentUser?.weightKg || 0);
+  const progress = riceProgress(balanceKg, hasRedeemed);
+  const firstName = currentUser?.name?.split(" ")[0] || "";
+  const isNew = myTransactions.length === 0 && balanceKg === 0;
 
   return (
-    <div className="household-home">
-      <section
-        className="portal-hero"
-        style={{
-          backgroundImage: `url(${process.env.PUBLIC_URL}/PageUI.png)`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <div className="portal-hero-overlay" />
-        <div className="portal-hero-content">
-          <h1>
-            Welcome Back,
-            <span>{firstName}!</span>
-          </h1>
-
-          <div className="portal-stat-row">
-            <StatTile
-              icon={<BottleIcon />}
-              label="Items Recycled"
-              value={totalItemsRecycled}
-              note="Stored total"
-            />
-            <StatTile
-              icon={
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 7h12l-1 15H7L6 7Z" />
-                  <path d="M9 7V4h6v3" />
-                  <path d="M10 13h4" />
-                </svg>
-              }
-              label="Total Weight"
-              value={formatWeight(totalWeightGrams)}
-              note="Same as your balance"
-              accent
-            />
-          </div>
-
-          <div className="portal-actions">
-            <button
-              type="button"
-              className="portal-btn portal-btn-rewards"
-              onClick={() => navigate("/user/redeem")}
-            >
-              <GiftIcon />
-              View Rewards
-            </button>
-            <button
-              type="button"
-              className="portal-btn portal-btn-insert"
-              onClick={handleInsertBottleClick}
-            >
-              <BottleIcon />
-              Insert Bottle
-            </button>
-          </div>
+    <div className="eco-home">
+      <div className="eco-home__inner">
+        <div className="eco-home__top">
+          <h1 className="eco-home__greeting">{firstName ? `Hi, ${firstName}` : "Hi"}</h1>
+          <BrandMark size={26} className="eco-brand-mark eco-home__mark" />
         </div>
-      </section>
 
-      <section id="about" className="portal-section">
-        <div>
-          <p className="portal-section-kicker">Household portal</p>
-          <h2>Track bottles, activate bins, and redeem rice from one place.</h2>
+        <section className="eco-balance" aria-labelledby="balance-label">
+          <p id="balance-label" className="eco-balance__label">
+            Your balance
+          </p>
+          <p className="eco-balance__value">{formatKg(balanceKg)}</p>
+
+          <RiceBowl
+            percent={progress.percent}
+            full={progress.ready}
+            label={`Progress to ${formatKg(MIN_REDEEM_KG)} of rice`}
+            valueText={progress.text}
+          />
+
+          {progress.ready ? (
+            <Link className="eco-btn eco-btn--dark eco-btn--block eco-balance__cta" to="/user/redeem">
+              Redeem rice
+            </Link>
+          ) : (
+            <p className="eco-balance__next">{progress.text}</p>
+          )}
+
+          <button
+            type="button"
+            className="eco-btn eco-btn--primary eco-btn--large eco-btn--block eco-balance__insert"
+            onClick={handleInsertBottleClick}
+            disabled={Boolean(sessionBinId)}
+          >
+            Insert Bottle
+          </button>
+        </section>
+
+        {startError ? (
+          <p className="eco-inline-error" role="alert">
+            {startError}
+          </p>
+        ) : null}
+
+        <div className="eco-home__side">
+          {isNew ? (
+            <ol className="eco-steps" aria-label="How it works">
+              <li>Collect</li>
+              <li>Insert</li>
+              <li>Get rice</li>
+            </ol>
+          ) : (
+            <>
+              <dl className="eco-stats" aria-label="Your recycling">
+                <div>
+                  <dt>Bottles</dt>
+                  <dd>{bottlesRecycled}</dd>
+                </div>
+                <div>
+                  <dt>Recycled</dt>
+                  <dd>{formatKg(recycledKg)}</dd>
+                </div>
+                <div>
+                  <dt>Rice earned</dt>
+                  <dd>{formatKg(riceKg)}</dd>
+                </div>
+              </dl>
+
+              <section className="eco-section" aria-labelledby="recent-heading">
+                <div className="eco-section__head">
+                  <h2 id="recent-heading" className="eco-section__title">
+                    Recent
+                  </h2>
+                  <Link className="eco-text-btn" to="/user/history" aria-label="See all activity">
+                    See all
+                  </Link>
+                </div>
+                <ActivityList items={recent} label="Recent activity" />
+              </section>
+            </>
+          )}
         </div>
-        <div className="portal-section-card">
-          <strong>{formatWeight(Number(currentUser?.weightKg || 0) * 1000)}</strong>
-          <span>Available reward balance</span>
-        </div>
-      </section>
+      </div>
 
       {binModalOpen ? (
-        <div className="portal-modal-backdrop">
-          <form className="portal-bin-modal" onSubmit={handleStartInsert}>
-            <div className="portal-modal-title">
-              <BottleIcon />
-              <h2>Enter Bin ID</h2>
-            </div>
-            <p>Enter your bin ID to start the bottle insertion session</p>
-            <input
-              className="portal-bin-input"
-              value={binInput}
-              onChange={(e) => setBinInput(e.target.value)}
-              placeholder="e.g. bin_001"
-              autoFocus
-            />
-            {binError ? <span className="portal-modal-error">{binError}</span> : null}
-            <div className="portal-modal-actions">
+        <div className="eco-sheet-backdrop">
+          <form
+            className="eco-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bin-modal-title"
+            onSubmit={handleBinSubmit}
+          >
+            <h2 id="bin-modal-title" className="eco-sheet__title">
+              Which bin are you at?
+            </h2>
+            <label className="eco-field">
+              <span>Bin ID</span>
+              <input
+                className="eco-field__input"
+                value={binInput}
+                onChange={(e) => setBinInput(e.target.value)}
+                placeholder="e.g. bin_001"
+                autoComplete="off"
+                autoFocus
+              />
+            </label>
+            {binError ? (
+              <p className="eco-inline-error" role="alert">
+                {binError}
+              </p>
+            ) : null}
+            <div className="eco-sheet__actions">
+              <button type="submit" className="eco-btn eco-btn--primary">
+                Connect to bin
+              </button>
               <button
                 type="button"
-                className="portal-modal-btn muted"
+                className="eco-btn eco-btn--secondary"
                 onClick={() => {
                   setBinModalOpen(false);
                   setBinError("");
@@ -430,91 +253,18 @@ export default function UserHomePage() {
               >
                 Cancel
               </button>
-              <button type="submit" className="portal-modal-btn primary">
-                Proceed
-              </button>
             </div>
           </form>
         </div>
       ) : null}
 
-      {sessionOpen ? (
-        <div className="portal-modal-backdrop compact">
-          <div className="portal-session-modal">
-            {insertStep === "summary" ? (
-              <>
-                <div className="portal-summary-icon">
-                  <CheckIcon />
-                </div>
-                <h2>Session Complete</h2>
-                <p className="portal-session-bin">Bin {selectedBinId}</p>
-
-                <div className="portal-summary-big">
-                  <span className="portal-summary-count">{sessionBottleCount}</span>
-                  <span className="portal-summary-unit">
-                    bottle{sessionBottleCount !== 1 ? "s" : ""} accepted
-                  </span>
-                </div>
-
-                <dl className="portal-session-stats">
-                  <div>
-                    <dt>Total weight collected:</dt>
-                    <dd>{formatWeight(sessionTotalKg * 1000)}</dd>
-                  </div>
-                  <div>
-                    <dt>Credited to your account:</dt>
-                    <dd>{sessionSaved ? `${sessionTotalKg.toFixed(4)} kg` : `${sessionTotalKg.toFixed(4)} kg pending save`}</dd>
-                  </div>
-                </dl>
-
-                <button
-                  type="button"
-                  className="portal-session-done"
-                  onClick={handleCloseSession}
-                >
-                  Close
-                </button>
-              </>
-            ) : (
-              <>
-                <h2>Insert Bottle</h2>
-
-                {insertStep === "active" ? (
-                  <strong className="portal-session-timer">{`${minutes}:${seconds}`}</strong>
-                ) : null}
-
-                <p>
-                  {insertStep === "waiting" ? `Activating bin ${selectedBinId}...` : null}
-                  {insertStep === "active" ? `Drop bottles into bin ${selectedBinId}` : null}
-                  {insertStep === "error" ? insertError || "The bin session failed." : null}
-                </p>
-
-                {insertNotice ? <span className="portal-session-validation">{insertNotice}</span> : null}
-
-                {sessionBottleCount > 0 ? (
-                  <dl className="portal-session-stats">
-                    <div>
-                      <dt>Bottles accepted:</dt>
-                      <dd>{sessionBottleCount}</dd>
-                    </div>
-                    <div>
-                      <dt>Weight collected:</dt>
-                      <dd>{formatWeight(sessionTotalKg * 1000)}</dd>
-                    </div>
-                  </dl>
-                ) : null}
-
-                <button
-                  type="button"
-                  className="portal-session-done"
-                  onClick={handleDone}
-                >
-                  Done and Save
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+      {sessionBinId && currentUser ? (
+        <InsertBottleSession
+          binId={sessionBinId}
+          user={currentUser}
+          onFinalize={finalizeSession}
+          onClose={closeSession}
+        />
       ) : null}
     </div>
   );

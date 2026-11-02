@@ -1,248 +1,365 @@
 import { useMemo } from "react";
-import { useAuth } from "../../app/AuthContext";
+import { Link } from "react-router-dom";
 import { useData } from "../../app/DataContext";
+import { buildAlerts } from "../../admin/alerts";
+import { getBinStatus } from "../../admin/binStatus";
+import { counterCheck, ledgerByResident } from "../../admin/ledger";
+import useNow from "../../admin/useNow";
+import {
+  AdminSection,
+  EmptyRow,
+  LoadErrorNotice,
+  StatusBadge,
+  TypeBadge,
+} from "../../components/admin/AdminUI";
+import DailyBarChart from "../../components/admin/DailyBarChart";
+import { formatDate, formatDateTime, formatKg, formatKgChange, toDate } from "../../utils/format";
 
-const formatDateTime = (timestamp) =>
-  new Date(timestamp).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+const CHART_DAYS = 14;
+// Validated chart colours (green for bottles, rice amber for redemptions).
+const CHART_COLORS = { bottles: "#236b35", rice: "#b7791f" };
+const SEVERITY_TONE = { critical: "critical", warning: "warning", info: "info" };
+const SEVERITY_LABEL = { critical: "Urgent", warning: "Check", info: "Info" };
+
+const dayKey = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+function dailySeries(transactions, now) {
+  const days = [];
+  const index = new Map();
+  for (let offset = CHART_DAYS - 1; offset >= 0; offset -= 1) {
+    const date = new Date(now);
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - offset);
+    const key = dayKey(date);
+    index.set(key, days.length);
+    days.push({
+      key,
+      label: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      longLabel: formatDate(date),
+      bottles: 0,
+      riceKg: 0,
+    });
+  }
+  transactions.forEach((tx) => {
+    const date = toDate(tx.timestamp);
+    if (!date) return;
+    const slot = index.get(dayKey(date));
+    if (slot === undefined) return;
+    if (tx.type === "bottle") days[slot].bottles += Number(tx.bottleDelta ?? tx.amount) || 0;
+    if (tx.type === "redeem" && tx.status !== "declined") {
+      days[slot].riceKg += Math.abs(Number(tx.riceDeltaKg) || 0);
+    }
   });
+  return days;
+}
 
-function AdminStatCard({ label, value, sub, subColor, icon }) {
+function MetricCard({ label, scope, value, sub, tone, children }) {
   return (
-    <div className="adm-stat-card">
-      <div className="adm-stat-top">
-        <span className="adm-stat-label">{label}</span>
-        <div className="adm-stat-icon">{icon}</div>
-      </div>
-      <div className="adm-stat-value">{value}</div>
-      {sub && (
-        <div className={`adm-stat-sub adm-stat-sub--${subColor || "green"}`}>
-          {sub}
-        </div>
-      )}
+    <div className={`adm-metric${tone ? ` adm-metric--${tone}` : ""}`}>
+      <p className="adm-metric__label">
+        {label}
+        <span className="adm-metric__scope">{scope}</span>
+      </p>
+      <p className="adm-metric__value">{value}</p>
+      {sub ? <p className="adm-metric__sub">{sub}</p> : null}
+      {children}
     </div>
   );
 }
 
 export default function AdminDashboardPage() {
-  const { currentUser } = useAuth();
-  const { users, transactions, system } = useData();
-  const hardwareBins = system.hardwareBins || {};
-  const primaryBinId = Object.keys(hardwareBins)[0] || "bin_001";
-  const liveBin = hardwareBins[primaryBinId] || null;
-  const liveRicePercent = Number(liveBin?.riceLevelPercent);
-  const liveBottlePercent = Number(liveBin?.bottleLevelPercent);
-  const hasLiveRice = Number.isFinite(liveRicePercent) && liveRicePercent >= 0;
-  const hasLiveBottle = Number.isFinite(liveBottlePercent) && liveBottlePercent >= 0;
+  const { users, transactions, system, syncErrors } = useData();
+  const now = useNow();
 
-  const households = useMemo(
-    () => users.filter((u) => u.role === "user"),
-    [users]
+  const residents = useMemo(() => users.filter((u) => u.role === "user"), [users]);
+  const alerts = useMemo(
+    () => buildAlerts({ system, users, transactions, now }),
+    [system, users, transactions, now]
   );
+  const check = useMemo(
+    () => counterCheck({ system, residents, transactions }),
+    [system, residents, transactions]
+  );
+  const ledger = useMemo(() => ledgerByResident(transactions), [transactions]);
+  const series = useMemo(() => dailySeries(transactions, now), [transactions, now]);
 
-  const activeBins = useMemo(
-    () => Object.keys(system.bins || {}).length,
-    [system.bins]
-  );
+  const binIds = Object.keys(system.bins || {});
+  const binCounts = binIds.reduce((counts, binId) => {
+    const { state } = getBinStatus(system.hardwareBins?.[binId], now);
+    counts[state] = (counts[state] || 0) + 1;
+    return counts;
+  }, {});
 
-  const recentTransactions = transactions.slice(0, 10);
+  const riceStock = Number(system.riceStock) || 0;
+  const capacity = Number(system.maxBottleCapacity) || 0;
+  const stored = Number(system.bottleStorage) || 0;
+  const storagePercent = capacity > 0 ? Math.min(100, (stored / capacity) * 100) : 0;
 
-  const storagePercent = Math.min(
-    100,
-    (system.bottleStorage / system.maxBottleCapacity) * 100
-  );
+  const redemptions = transactions.filter((tx) => tx.type === "redeem" && tx.status !== "declined");
+  const riceRedeemed = redemptions.reduce((sum, tx) => sum + Math.abs(Number(tx.riceDeltaKg) || 0), 0);
 
-  const bottleTx = useMemo(
-    () => transactions.filter((t) => t.type === "bottle"),
-    [transactions]
-  );
-  const redeemTx = useMemo(
-    () => transactions.filter((t) => t.type === "redeem"),
-    [transactions]
-  );
+  const barangays = useMemo(() => {
+    const groups = new Map();
+    residents.forEach((user) => {
+      const name = user.barangay || "No barangay";
+      const group = groups.get(name) || { name, residents: 0, bottles: 0, earnedKg: 0, balanceKg: 0 };
+      const entry = ledger.get(user.id);
+      group.residents += 1;
+      group.bottles += entry?.bottles || 0;
+      group.earnedKg += entry?.earnedKg || 0;
+      group.balanceKg += Number(user.weightKg) || 0;
+      groups.set(name, group);
+    });
+    return [...groups.values()].sort((a, b) => b.earnedKg - a.earnedKg);
+  }, [residents, ledger]);
+
+  const recent = transactions.slice(0, 8);
 
   return (
-    <div className="adm-shell">
+    <div className="adm-page">
+      <LoadErrorNotice errors={syncErrors} sources={["users", "transactions", "bin_status"]} />
 
-      {/* ── Top bar ── */}
-      <div className="adm-topbar">
-        <div>
-          <p className="adm-topbar-sub">MAIN MENU</p>
-        </div>
-        <div className="adm-topbar-user">
-          <div className="adm-avatar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-              <circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>
-            </svg>
-          </div>
-          <span className="adm-topbar-name">{currentUser?.name || "Admin"}</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </div>
-      </div>
-
-      {/* ── Alert banners ── */}
-      {system.bottleStorage >= system.maxBottleCapacity && (
-        <div className="adm-alert adm-alert--warning">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          Bottle storage at max capacity — schedule collection now.
-        </div>
-      )}
-
-      {/* ── Stat cards grid ── */}
-      <div className="adm-stat-grid">
-        <AdminStatCard
-          label="Total Users"
-          value={households.length.toLocaleString()}
-          sub="Registered households"
-          subColor="green"
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          }
-        />
-        <AdminStatCard
-          label="Active Bins"
-          value={activeBins}
-          sub="All operational"
-          subColor="blue"
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6l-1 14H6L5 6"/>
-              <path d="M10 11v6"/><path d="M14 11v6"/>
-              <path d="M9 6V4h6v2"/>
-            </svg>
-          }
-        />
-        <AdminStatCard
-          label="Items Recycled"
-          value={(system.totalItemsRecycled ?? 0).toLocaleString()}
-          sub={`${Number(system.totalWeightRecycledKg ?? 0).toFixed(3)} kg recycled total`}
-          subColor="green"
-          icon={
-            <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-              <polyline points="1 4 1 10 7 10"/>
-              <polyline points="23 20 23 14 17 14"/>
-              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
-            </svg>
-          }
-        />
-      </div>
-
-      {/* ── Rice & Storage overview ── */}
-      <div className="adm-overview-grid">
-        <div className="adm-card">
-          <div className="adm-card-header">
-            <h3 className="adm-card-title">Rice Stock</h3>
-            <span className="adm-badge adm-badge--green">Live</span>
-          </div>
-          <div className="adm-big-number">{system.riceStock} <span className="adm-big-unit">kg</span></div>
-          <p className="adm-card-sub">
-            {hasLiveRice
-              ? `Ultrasonic level: ${liveRicePercent.toFixed(0)}% full (${primaryBinId})`
-              : "Available for redemption"}
+      <AdminSection title="Needs attention" className="adm-attention">
+        {alerts.length === 0 ? (
+          <p className="adm-all-clear">
+            <StatusBadge tone="good">No issues found</StatusBadge>
+            Rice is in stock, every bin reports in, and the totals match the transaction log.
           </p>
-        </div>
+        ) : (
+          <ul className="adm-alert-list">
+            {alerts.map((alert) => (
+              <li key={alert.id} className={`adm-alert-item adm-alert-item--${alert.severity}`}>
+                <StatusBadge tone={SEVERITY_TONE[alert.severity]}>{SEVERITY_LABEL[alert.severity]}</StatusBadge>
+                <div className="adm-alert-item__text">
+                  <strong>{alert.title}</strong>
+                  <span>{alert.detail}</span>
+                </div>
+                {alert.to.startsWith("#") ? (
+                  <a className="adm-link" href={alert.to}>
+                    {alert.linkLabel}
+                  </a>
+                ) : (
+                  <Link className="adm-link" to={alert.to}>
+                    {alert.linkLabel}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AdminSection>
 
-        <div className="adm-card">
-          <div className="adm-card-header">
-            <h3 className="adm-card-title">Bottle Storage</h3>
-            <span className={`adm-badge ${storagePercent >= 90 ? "adm-badge--red" : storagePercent >= 70 ? "adm-badge--amber" : "adm-badge--green"}`}>
-              {storagePercent.toFixed(0)}%
-            </span>
-          </div>
-          <div className="adm-big-number">{system.bottleStorage} <span className="adm-big-unit">/ {system.maxBottleCapacity}</span></div>
-          <div className="adm-progress-track">
-            <div
-              className={`adm-progress-fill ${storagePercent >= 90 ? "adm-progress-fill--red" : storagePercent >= 70 ? "adm-progress-fill--amber" : "adm-progress-fill--green"}`}
-              style={{ width: `${storagePercent}%` }}
-            />
-          </div>
-          <p className="adm-card-sub" style={{ marginTop: 8 }}>
-            {hasLiveBottle
-              ? `Ultrasonic fill level: ${liveBottlePercent.toFixed(0)}% (${primaryBinId})`
-              : "Bin storage utilization"}
+      <div className="adm-metrics">
+        <MetricCard
+          label="Rice stock"
+          scope="Current, all bins"
+          value={riceStock <= 0 ? "Out of stock" : formatKg(riceStock)}
+          tone={riceStock <= 0 ? "critical" : undefined}
+          sub={riceStock <= 0 ? "Residents can't redeem until rice is restocked." : "Available for redemptions"}
+        />
+        <MetricCard label="Bins" scope="Registered" value={binIds.length}>
+          <p className="adm-metric__badges">
+            {["online", "delayed", "offline", "nodata"]
+              .filter((state) => binCounts[state])
+              .map((state) => (
+                <StatusBadge
+                  key={state}
+                  tone={{ online: "good", delayed: "warning", offline: "critical", nodata: "neutral" }[state]}
+                >
+                  {binCounts[state]} {{ online: "online", delayed: "delayed", offline: "offline", nodata: "no data" }[state]}
+                </StatusBadge>
+              ))}
           </p>
-        </div>
-
-        <div className="adm-card">
-          <div className="adm-card-header">
-            <h3 className="adm-card-title">Transaction Summary</h3>
+        </MetricCard>
+        <MetricCard
+          label="Bottle storage"
+          scope="Estimated"
+          value={`${stored} / ${capacity}`}
+          tone={storagePercent >= 90 ? "warning" : undefined}
+          sub="Counted from saved bottles, not measured by a sensor"
+        >
+          <div className="adm-meter" aria-hidden="true">
+            <span style={{ width: `${storagePercent}%` }} />
           </div>
-          <div className="adm-tx-summary">
-            <div className="adm-tx-row">
-              <span className="adm-badge adm-badge--green">Bottle Inserts</span>
-              <strong>{bottleTx.length}</strong>
-            </div>
-            <div className="adm-tx-row">
-              <span className="adm-badge adm-badge--amber">Redemptions</span>
-              <strong>{redeemTx.length}</strong>
-            </div>
-            <div className="adm-tx-row">
-              <span className="adm-badge adm-badge--blue">Total Logs</span>
-              <strong>{transactions.length}</strong>
-            </div>
-          </div>
-        </div>
+        </MetricCard>
+        <MetricCard
+          label="Residents"
+          scope="Registered now"
+          value={residents.length.toLocaleString()}
+          sub={`${residents.filter((u) => !u.barangay).length} without a barangay`}
+        />
+        <MetricCard
+          label="Bottles recycled"
+          scope="Lifetime, stored counter"
+          value={(Number(system.totalItemsRecycled) || 0).toLocaleString()}
+          sub={`${formatKg(system.totalWeightRecycledKg)} of plastic`}
+        />
+        <MetricCard
+          label="Rice redeemed"
+          scope="Lifetime, from log"
+          value={formatKg(riceRedeemed)}
+          sub={`${redemptions.length} redemption${redemptions.length === 1 ? "" : "s"}, declined ones excluded`}
+        />
       </div>
 
-      {/* ── Recent System Logs ── */}
-      <div className="adm-card">
-        <div className="adm-card-header">
-          <h3 className="adm-card-title">Recent System Logs</h3>
-          <span className="adm-badge adm-badge--blue">Last 10</span>
+      <AdminSection
+        title="Activity, last 14 days"
+        description="From the transaction log. Hover a bar for the exact value."
+      >
+        <div className="adm-chart-grid">
+          <DailyBarChart
+            title="Bottles saved per day"
+            days={series.map((day) => ({ ...day, value: day.bottles }))}
+            color={CHART_COLORS.bottles}
+            formatValue={(value, axis) => (axis ? String(Math.round(value)) : `${value} bottle${value === 1 ? "" : "s"}`)}
+          />
+          <DailyBarChart
+            title="Rice redeemed per day"
+            days={series.map((day) => ({ ...day, value: day.riceKg }))}
+            color={CHART_COLORS.rice}
+            formatValue={(value) => formatKg(value)}
+          />
         </div>
-        <div className="table-wrap">
-          <table>
+        <details className="adm-details">
+          <summary>Show as table</summary>
+          <div className="adm-table-wrap">
+            <table className="adm-table">
+              <thead>
+                <tr>
+                  <th scope="col">Day</th>
+                  <th scope="col" className="adm-num">Bottles saved</th>
+                  <th scope="col" className="adm-num">Rice redeemed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {series.map((day) => (
+                  <tr key={day.key}>
+                    <td>{day.longLabel}</td>
+                    <td className="adm-num">{day.bottles}</td>
+                    <td className="adm-num">{formatKg(day.riceKg)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </AdminSection>
+
+      <AdminSection title="Barangays" description="Lifetime figures from the transaction log; balance is current.">
+        <div className="adm-table-wrap">
+          <table className="adm-table">
             <thead>
               <tr>
-                <th>Timestamp</th>
-                <th>User</th>
-                <th>Type</th>
-                <th>Details</th>
+                <th scope="col">Barangay</th>
+                <th scope="col" className="adm-num">Residents</th>
+                <th scope="col" className="adm-num">Bottles</th>
+                <th scope="col" className="adm-num">Plastic</th>
+                <th scope="col" className="adm-num">Balance</th>
               </tr>
             </thead>
             <tbody>
-              {recentTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="muted-cell">
-                    <div className="empty-activity">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                      </svg>
-                      <p>No logs yet.</p>
-                    </div>
-                  </td>
-                </tr>
+              {barangays.length === 0 ? (
+                <EmptyRow colSpan={5}>No residents yet.</EmptyRow>
               ) : (
-                recentTransactions.map((item) => (
-                  <tr key={item.id}>
-                    <td>{formatDateTime(item.timestamp)}</td>
-                    <td><strong>{item.userName}</strong></td>
+                barangays.map((group) => (
+                  <tr key={group.name}>
                     <td>
-                      <span className={`badge badge-${item.type}`}>{item.type}</span>
+                      {group.name === "No barangay" ? (
+                        <StatusBadge tone="warning">No barangay</StatusBadge>
+                      ) : (
+                        group.name
+                      )}
                     </td>
-                    <td>{item.details}</td>
+                    <td className="adm-num">{group.residents}</td>
+                    <td className="adm-num">{group.bottles}</td>
+                    <td className="adm-num">{formatKg(group.earnedKg)}</td>
+                    <td className="adm-num">{formatKg(group.balanceKg)}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
-      </div>
+      </AdminSection>
 
+      <AdminSection
+        id="data-check"
+        title="Data check"
+        description="Read-only. Compares the stored counters with what the transaction log adds up to."
+      >
+        <div className="adm-table-wrap">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th scope="col">Lifetime total</th>
+                <th scope="col" className="adm-num">System counter</th>
+                <th scope="col" className="adm-num">Residents' counters</th>
+                <th scope="col" className="adm-num">Transaction log</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Bottles</th>
+                <td className="adm-num">{check.bottles.system}</td>
+                <td className="adm-num">{check.bottles.residents}</td>
+                <td className="adm-num">{check.bottles.ledger}</td>
+              </tr>
+              <tr>
+                <th scope="row">Plastic weight</th>
+                <td className="adm-num">{formatKg(check.weightKg.system)}</td>
+                <td className="adm-num">{formatKg(check.weightKg.residents)}</td>
+                <td className="adm-num">{formatKg(check.weightKg.ledger)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="adm-section__foot">
+          {check.matches ? (
+            <StatusBadge tone="good">All three agree</StatusBadge>
+          ) : (
+            <StatusBadge tone="warning">They differ. Nothing has been changed.</StatusBadge>
+          )}
+        </p>
+      </AdminSection>
+
+      <AdminSection
+        title="Recent activity"
+        actions={
+          <Link className="adm-link" to="/admin/logs">
+            All logs
+          </Link>
+        }
+      >
+        <div className="adm-table-wrap">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Resident</th>
+                <th scope="col">Type</th>
+                <th scope="col" className="adm-num">Balance change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recent.length === 0 ? (
+                <EmptyRow colSpan={4}>No activity yet. Bottle saves and redemptions appear here.</EmptyRow>
+              ) : (
+                recent.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>{formatDateTime(tx.timestamp)}</td>
+                    <td>{tx.userName}</td>
+                    <td>
+                      <TypeBadge tx={tx} />
+                    </td>
+                    <td className="adm-num">{tx.type === "system" ? "—" : formatKgChange(tx.kgDelta)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </AdminSection>
     </div>
   );
 }

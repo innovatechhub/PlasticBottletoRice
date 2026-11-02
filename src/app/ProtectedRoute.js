@@ -1,13 +1,6 @@
 import { Navigate } from "react-router-dom";
+import LoadingScreen from "../components/LoadingScreen";
 import { useAuth } from "./AuthContext";
-
-function LoadingScreen() {
-  return (
-    <div className="centered-screen">
-      <p>Checking access...</p>
-    </div>
-  );
-}
 
 export default function ProtectedRoute({ children, allowedRoles }) {
   const { currentUser, loading } = useAuth();

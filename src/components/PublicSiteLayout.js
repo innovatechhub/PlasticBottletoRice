@@ -1,55 +1,54 @@
 import { Link, NavLink } from "react-router-dom";
+import { useAuth } from "../app/AuthContext";
+import BrandMark from "./BrandMark";
 import PublicMobileNav from "./PublicMobileNav";
+import { accountHome } from "../utils/routes";
+
+const navLinks = [
+  { to: "/", label: "Home", end: true },
+  { to: "/rewards", label: "Rewards" },
+  { to: "/about-us", label: "About Us" },
+];
 
 export default function PublicSiteLayout({ children }) {
+  const { currentUser } = useAuth();
+  const accountPath = accountHome(currentUser);
+
   return (
-    <div className="eco-landing">
-      <header className="eco-landing__header">
-        <nav className="eco-landing__nav" aria-label="Primary">
-          <Link className="eco-landing__brand" to="/">
+    <div className="pub">
+      <header className="pub-header">
+        <nav className="pub-header__inner" aria-label="Primary">
+          <Link className="pub-brand" to="/">
+            <BrandMark />
             EcoRice
           </Link>
 
-          <div className="eco-landing__nav-links">
-            <NavLink
-              className={({ isActive }) =>
-                `eco-landing__nav-link${isActive ? " is-active" : ""}`
-              }
-              to="/"
-              end
-            >
-              Home
-            </NavLink>
-            <NavLink
-              className={({ isActive }) =>
-                `eco-landing__nav-link${isActive ? " is-active" : ""}`
-              }
-              to="/rewards"
-            >
-              Rewards
-            </NavLink>
-            <NavLink
-              className={({ isActive }) =>
-                `eco-landing__nav-link${isActive ? " is-active" : ""}`
-              }
-              to="/about-us"
-            >
-              About Us
-            </NavLink>
+          <div className="pub-header__links">
+            {navLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) => `pub-header__link${isActive ? " is-active" : ""}`}
+              >
+                {link.label}
+              </NavLink>
+            ))}
           </div>
 
-          <div className="eco-landing__nav-actions">
-            <Link
-              className="eco-landing__btn eco-landing__btn--primary eco-landing__btn--login"
-              to="/login"
-            >
-              Login
+          {currentUser ? (
+            <Link className="eco-text-btn" to={accountPath}>
+              My account
             </Link>
-          </div>
+          ) : (
+            <Link className="eco-text-btn" to="/login">
+              Log in
+            </Link>
+          )}
         </nav>
       </header>
 
-      {children}
+      <main className="pub-main">{children}</main>
       <PublicMobileNav />
     </div>
   );
